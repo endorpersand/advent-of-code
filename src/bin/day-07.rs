@@ -1,7 +1,6 @@
-use std::borrow::Borrow;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fs;
-use std::path::{PathBuf, Path};
+use std::path::PathBuf;
 
 fn main() {
     let input = fs::read_to_string("inputs/7.txt").unwrap();
