@@ -24,7 +24,7 @@ fn main() {
         .collect();
 
     // PART A
-    let mut rope = Rope::new1();
+    let mut rope = Rope::<1>::new();
     let mut tails = HashSet::new();
     tails.insert(rope.tail[0]);
 
@@ -83,15 +83,6 @@ impl Dir {
 struct Rope<const N: usize> {
     head: Coord,
     tail: [Coord; N]
-}
-
-impl Rope<1> {
-    fn new1() -> Self { 
-        Rope {
-            head: (0, 0),
-            tail: [(0, 0); 1],
-        }
-    }
 }
 
 impl<const N: usize> Rope<N> {
