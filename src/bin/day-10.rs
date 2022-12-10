@@ -9,16 +9,14 @@ fn main() {
         .map(|s| s.parse().unwrap())
         .collect();
     
-    let mut it = Signal::new(instrs.clone());
+    let signals: Vec<_> = Signal::new(instrs.clone()).collect();
 
     // PART A
     let result: isize = (0..=5)
         .map(|idx| 20 + idx * 40)
-        .flat_map(|cycle| {
-            it.by_ref()
-                .take_while(|&(c, _)| (c < cycle))
-                .last()
-                .map(|(_, s)| s * (cycle as isize))
+        .flat_map(|cycle| match signals.get(cycle - 1) {
+            Some(&signal) => Some((cycle as isize) * signal),
+            None => None,
         })
         .sum();
 
@@ -26,25 +24,20 @@ fn main() {
     println!("{result}");
     
     // PART B
-    let mut cycle = 1;
-    let mut signal: isize = 1;
-    let mut it = Signal::new(instrs);
-    let mut pixels: Vec<bool> = vec![];
-    while let Some((after_cycle, after_value)) = it.next() {
-        while cycle <= after_cycle {
-            let pos: isize = ((cycle as isize) - 1) % 40;
-            pixels.push((signal - 1) <= pos && pos <= (signal + 1));
-            cycle += 1;
-        }
-        signal = after_value;
-    }
 
-    let result = pixels.into_iter()
+    // pixels
+    let result = signals.into_iter().enumerate()
+        .map(|(cyclem1, signal)| {
+            let pos = (cyclem1 as isize) % 40;
+            (signal - 1) <= pos && pos <= (signal + 1)
+        })
+
+        // convert to text
         .map(|b| if b { '#' } else { '.' })
         .collect::<Vec<_>>()
         .chunks(40)
-        .map(|chars| chars.iter().collect())
-        .collect::<Vec<String>>()
+        .map(String::from_iter)
+        .collect::<Vec<_>>()
         .join("\n");
     println!("{result}")
 
@@ -72,31 +65,43 @@ impl FromStr for Instruction {
 }
 
 struct Signal {
-    cycle: usize,
     value: isize,
+    partial: Option<Instruction>,
     instructions: VecDeque<Instruction>
 }
 
 impl Signal {
     fn new(it: impl IntoIterator<Item=Instruction>) -> Self {
-        Self { cycle: 0, value: 1, instructions: it.into_iter().collect() }
+        Self { value: 1, partial: None, instructions: it.into_iter().collect() }
     }
 }
 impl Iterator for Signal {
-    type Item = (usize, isize /* value after cycle completes */);
+    type Item = isize /* during this cycle, the value is */;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let inst = self.instructions.pop_front()?;
-        match inst {
-            Instruction::Add(val) => {
-                self.cycle += 2;
-                self.value += val;
+        match self.partial.take() {
+            Some(inst) => {
+                // during cycle
+                let value = self.value;
+                // end cycle
+                if let Instruction::Add(t) = inst {
+                    self.value += t;
+                }
+
+                Some(value)
             },
-            Instruction::Noop => {
-                self.cycle += 1;
+            None => {
+                // start cycle
+                let inst = self.instructions.pop_front()?;
+                // during cycle
+                let value = self.value;
+                // end cycle
+                if let Instruction::Add(_) = inst {
+                    self.partial.replace(inst);
+                }
+
+                Some(value)
             },
         }
-
-        Some((self.cycle, self.value))
     }
 }
