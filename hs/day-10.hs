@@ -4,15 +4,12 @@ main = do
     input <- readFile "inputs/10.txt"
 
     let insts = parseLine <$> lines input
-    let state = put (Nothing, insts, 1) :: State InstState ()
-
     let signals = while (not . isEmpty) progress (Nothing, insts, 1)
 
     -- part A
     print $ sum $ dedup $ fmap (\i -> (signals !! (i - 1)) * i) [20, 60 .. 220]
 
     -- part B
-    let cray = (\ (p, sig) -> sig - 1 <= p && p <= sig + 1) <$> zip (cycle [1..40]) signals
     let display1 = do
         (p, sig) <- zip (cycle [0..39]) signals
         let on = sig - 1 <= p && p <= sig + 1
