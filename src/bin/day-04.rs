@@ -39,7 +39,7 @@ fn subrange<T, R>(sup: R, sub: R) -> bool
 }
 
 fn as_ranges(line: &str) -> (RangeInclusive<usize>, RangeInclusive<usize>) {
-    let mut split = line.split(",");
+    let mut split = line.split(',');
     let left  = as_range(split.next().unwrap());
     let right = as_range(split.next().unwrap());
     debug_assert_eq!(split.next(), None);
@@ -48,7 +48,7 @@ fn as_ranges(line: &str) -> (RangeInclusive<usize>, RangeInclusive<usize>) {
 }
 
 fn as_range(range: &str) -> RangeInclusive<usize> {
-    let mut split = range.split("-");
+    let mut split = range.split('-');
     let left  = split.next().unwrap().parse().unwrap();
     let right = split.next().unwrap().parse().unwrap();
     debug_assert_eq!(split.next(), None);

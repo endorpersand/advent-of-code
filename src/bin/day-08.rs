@@ -137,7 +137,7 @@ impl MatrixCursor<'_> {
         #[inline]
         fn checked_add(a: usize, b: isize) -> Option<usize> {
             if b < 0 { 
-                a.checked_sub(b.abs() as usize) 
+                a.checked_sub(b.unsigned_abs()) 
             } else {
                 a.checked_add(b as usize)
             }

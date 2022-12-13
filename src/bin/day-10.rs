@@ -9,15 +9,12 @@ fn main() {
         .map(|s| s.parse().unwrap())
         .collect();
     
-    let signals: Vec<_> = Signal::new(instrs.clone()).collect();
+    let signals: Vec<_> = Signal::new(instrs).collect();
 
     // PART A
     let result: isize = (0..=5)
         .map(|idx| 20 + idx * 40)
-        .flat_map(|cycle| match signals.get(cycle - 1) {
-            Some(&signal) => Some((cycle as isize) * signal),
-            None => None,
-        })
+        .flat_map(|cycle| signals.get(cycle - 1).map(|&signal| (cycle as isize) * signal))
         .sum();
 
         
@@ -54,12 +51,10 @@ impl FromStr for Instruction {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s == "noop" {
             Ok(Instruction::Noop)
+        } else if let Some(int) = s.strip_prefix("addx ") {
+            Ok(Instruction::Add(int.parse().unwrap()))
         } else {
-            if let Some(int) = s.strip_prefix("addx ") {
-                Ok(Instruction::Add(int.parse().unwrap()))
-            } else {
-                Err(())
-            }
+            Err(())
         }
     }
 }

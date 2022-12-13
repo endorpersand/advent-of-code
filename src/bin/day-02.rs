@@ -102,7 +102,7 @@ impl FromStr for Game1 {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut moves = s.split(" ");
+        let mut moves = s.split(' ');
 
         let opp = moves.next().unwrap().parse()?;
         let you = moves.next().unwrap().parse()?;
@@ -119,7 +119,7 @@ impl FromStr for Game2 {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut moves = s.split(" ");
+        let mut moves = s.split(' ');
 
         let opp = moves.next().unwrap().parse()?;
         let you = moves.next().unwrap().parse()?;
