@@ -105,21 +105,9 @@ impl<T: Ord> Ord for List<T> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         match (self, other) {
             (List::Element(e1), List::Element(e2)) => e1.cmp(e2),
-            (List::Element(_), List::Vec(v2)) => {
-                let v1: &[_] = &[self];
-                // heap alloc :(
-                let v2: Vec<_> = v2.iter().collect();
-
-                v1.cmp(&v2)
-            },
-            (List::Vec(v1), List::Element(_)) => {
-                // heap alloc :(
-                let v1: Vec<_> = v1.iter().collect();
-                let v2: &[_] = &[other];
-
-                v1.as_slice().cmp(v2)
-            },
             (List::Vec(v1), List::Vec(v2)) => v1.cmp(v2),
+            (List::Element(_), List::Vec(v2)) => std::iter::once(self).cmp(v2),
+            (List::Vec(v1), List::Element(_)) => v1.iter().cmp(std::iter::once(other)),
         }
     }
 }
