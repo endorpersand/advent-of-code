@@ -44,7 +44,7 @@ enum List<T> {
 }
 
 fn split_numeric(s: &str) -> Option<(usize, &str)> {
-    let first_non_numeric = s.chars().position(|c| !c.is_numeric())?;
+    let first_non_numeric = s.find(|c: char| !c.is_numeric())?;
     let (a, b) = s.split_at(first_non_numeric);
     Some((a.parse().unwrap(), b))
 }
@@ -64,10 +64,7 @@ fn split_list(s: &str) -> Option<(List<usize>, &str)> {
                 inner.push(lst);
                 rest
             },
-            ']' => {
-                break;
-            }
-            _ => None?
+            _ => break
         };
         if let Some(rest) = rest.strip_prefix(',') {
             ss = rest;
@@ -116,8 +113,8 @@ impl<T: Ord> Ord for List<T> {
                 v1.cmp(&v2)
             },
             (List::Vec(v1), List::Element(_)) => {
-                let v1: Vec<_> = v1.iter().collect();
                 // heap alloc :(
+                let v1: Vec<_> = v1.iter().collect();
                 let v2: &[_] = &[other];
 
                 v1.as_slice().cmp(v2)
