@@ -11,12 +11,12 @@ fn main() {
         field.add_line(c1, c2);
     }
 
-    while let Some(pt) = field.next_sand_point_from_top() {
+    while let Some(pt) = field.next_sand_point((500, 0)) {
         field.add_sand(pt);
     }
     println!("{}", field.sand);
 
-    while let Some(pt) = field.next_sand_point_from_top2() {
+    while let Some(pt) = field.next_sand_point2((500, 0)) {
         field.add_sand(pt);
     }
     // field.add_sand(field.next_sand_point_from_top2().unwrap());
@@ -66,20 +66,6 @@ impl Field {
 
         ((xmin, ymin), (xmax, ymax))
     }
-    fn rock_bounds(&self) -> (Coord /* min */, Coord /* max */) {
-        let mut yvals = self.scenery.keys();
-        let &ymin = yvals.next().unwrap();
-        let &ymax = yvals.last().unwrap();
-
-        let xvals: HashSet<_> = self.scenery.values()
-            .flat_map(|xs| xs.keys())
-            .collect();
-
-        let &&xmin = xvals.iter().min().unwrap();
-        let &&xmax = xvals.iter().max().unwrap();
-
-        ((xmin, ymin), (xmax, ymax))
-    }
 
     fn add_rock(&mut self, (cx, cy): Coord) {
         self.scenery.entry(cy).or_insert(BTreeMap::new()).insert(cx, Immovable::Rock);
@@ -91,10 +77,6 @@ impl Field {
 
     fn get(&self, x: isize, y: isize) -> Option<Immovable> {
         self.scenery.get(&y).and_then(|s| s.get(&x)).copied()
-    }
-
-    fn next_sand_point_from_top(&self) -> Option<Coord> {
-        self.next_sand_point((500, 0))
     }
 
     fn next_sand_point(&self, (px, py): Coord) -> Option<Coord> {
@@ -126,36 +108,38 @@ impl Field {
         }
     }
 
-    fn next_sand_point_from_top2(&self) -> Option<Coord> {
-        self.next_sand_point2((500, 0))
-    }
-
     fn next_sand_point2(&self, (px, py): Coord) -> Option<Coord> {
         if self.get2(px, py).is_some() { None? }
 
         // find the surface
-        let colly = self.scenery.range((py + 1)..)
+        let mcolly = self.scenery.range((py + 1)..)
             .filter_map(|(y, hs)| hs.contains_key(&px).then_some(*y))
-            .next()
-            .unwrap_or_else(|| {
-                self.scenery.iter()
-                    .filter_map(|(y, hs)| hs.values().any(|&im| im == Immovable::Rock).then_some(y))
-                    .last()
-                    .unwrap() + 2
-            });
+            .next();
         
-        // our current point is one above the surface
-        // px, colly - 1
+        match mcolly {
+            // proceed from part A
+            Some(colly) => {
+                if self.get2(px - 1, colly).is_none() {
+                    // check left.
+                    self.next_sand_point2((px - 1, colly))
+                } else if self.get2(px + 1, colly).is_none() {
+                    // check right
+                    self.next_sand_point2((px + 1, colly))
+                } else {
+                    // it's where the current point is
+                    Some((px, colly - 1))
+                }
+            },
+            None => {
+                let colly = {
+                    self.scenery.iter()
+                        .filter_map(|(y, hs)| hs.values().any(|&im| im == Immovable::Rock).then_some(y))
+                        .last()
+                        .unwrap() + 1
+                };
 
-        if self.get2(px - 1, colly).is_none() {
-            // check left.
-            self.next_sand_point2((px - 1, colly))
-        } else if self.get2(px + 1, colly).is_none() {
-            // check right
-            self.next_sand_point2((px + 1, colly))
-        } else {
-            // it's where the current point is
-            Some((px, colly - 1))
+                Some((px, colly))
+            },
         }
     }
 }
