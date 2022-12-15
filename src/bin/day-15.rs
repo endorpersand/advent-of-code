@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fs;
 use std::str::FromStr;
 
@@ -15,11 +16,27 @@ fn main() {
     let (xmin, xmax) = find_x_bounds(visible_sensors.iter().copied(), y);
     println!("checking {xmin}..={xmax} on {} sensors", visible_sensors.len());
 
-    let result = (xmin..=xmax)
-        .filter(|&x| visible_sensors.iter().any(|s| {
-            s.covers_pos((x, y)) && (x, y) != s.nearest
-        }))
-        .count();
+    let mut result = 0;
+    let mut xs = xmin..=xmax;
+    while let Some(x) = xs.next() {
+        let m_in_range = visible_sensors.iter()
+            .flat_map(|s| s.cover_range((x, y)))
+            .next();
+        
+        if let Some(r) = m_in_range {
+            result += r + 1;
+            xs = (x + r + 1)..=xmax;
+        } else {
+            continue;
+        }
+    }
+    let beacons = visible_sensors
+        .into_iter()
+        .filter_map(|s| (s.nearest.1 == y).then_some(s.nearest.0))
+        .collect::<HashSet<_>>()
+        .len() as isize;
+    result -= beacons;
+    
     println!("{result}");
 
     let range = 4000000;
@@ -33,8 +50,8 @@ fn main() {
             let m_in_range = vis.iter()
                 .flat_map(|s| s.cover_range((x, y)))
                 .next();
-            if let Some(ir) = m_in_range {
-                xs = (x + ir + 1) ..= range;
+            if let Some(r) = m_in_range {
+                xs = (x + r + 1)..=range;
             } else {
                 result.replace((x, y));
                 break 'a;
@@ -60,10 +77,6 @@ impl Sensor {
 
     fn covers_y(&self, y: isize) -> bool {
         (self.sensor.1 - y).abs() <= self.range
-    }
-
-    fn covers_pos(&self, p: Coord) -> bool {
-        self.cover_range(p).is_some()
     }
 
     fn cover_range(&self, p: Coord) -> Option<isize> {
