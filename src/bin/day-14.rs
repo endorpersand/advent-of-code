@@ -238,7 +238,6 @@ impl Display for Field {
                         }).collect()
                     )
             })
-            .map(|s| writeln!(f, "{s}"))
-            .collect()
+            .try_for_each(|s| writeln!(f, "{s}"))
     }
 }
