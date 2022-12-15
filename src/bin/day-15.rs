@@ -41,21 +41,16 @@ fn main() {
 
     let range = 4000000;
     let mut result = None;
-    'a: for y in 0..=range {
-        // println!("checking {y}");
-        let vis: Vec<_> = sensors.iter().filter(|s| s.covers_y(y)).collect();
-        
-        let mut xs = 0..=range;
-        while let Some(x) = xs.next() {
-            let m_in_range = vis.iter()
-                .flat_map(|s| s.cover_range((x, y)))
-                .next();
-            if let Some(r) = m_in_range {
-                xs = (x + r + 1)..=range;
-            } else {
-                result.replace((x, y));
-                break 'a;
-            }
+    let rings = sensors.iter()
+        .flat_map(Sensor::ring_around)
+        .filter(|&(x, y)| 0 <= x && x <= range && 0 <= y && y <= range);
+
+    for p in rings {
+        let undetected = sensors.iter().all(|s| s.cover_range(p).is_none());
+
+        if undetected {
+            result.replace(p);
+            break;
         }
     }
     println!("{result:?}");
@@ -82,6 +77,13 @@ impl Sensor {
     fn cover_range(&self, p: Coord) -> Option<isize> {
         let delta = self.range - manhattan(self.sensor, p);
         (delta >= 0).then_some(delta)
+    }
+
+    fn ring_around(&self) -> impl Iterator<Item=Coord> {
+        let (sx, sy) = self.sensor;
+
+        ring(self.range + 1)
+            .map(move |(dx, dy)| (sx + dx, sy + dy))
     }
 }
 
@@ -131,4 +133,11 @@ fn find_x_bounds<'a>(it: impl IntoIterator<Item=&'a Sensor>, y: isize) -> (isize
         });
 
     a.zip(b).unwrap()
+}
+
+fn ring(s: isize) -> impl Iterator<Item=Coord> {
+    (0..s).map(move |i| (-s + i, i))
+        .chain((0..s).map(move |i| (i, s - i)))
+        .chain((0..s).map(move |i| (s - i, - i)))
+        .chain((0..s).map(move |i| (-i, -s + i)))
 }
