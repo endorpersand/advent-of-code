@@ -68,10 +68,10 @@ impl Field {
     }
 
     fn add_rock(&mut self, (cx, cy): Coord) {
-        self.scenery.entry(cy).or_insert(BTreeMap::new()).insert(cx, Immovable::Rock);
+        self.scenery.entry(cy).or_default().insert(cx, Immovable::Rock);
     }
     fn add_sand(&mut self, (cx, cy): Coord) {
-        self.scenery.entry(cy).or_insert(BTreeMap::new()).insert(cx, Immovable::Sand);
+        self.scenery.entry(cy).or_default().insert(cx, Immovable::Sand);
         self.sand += 1;
     }
 

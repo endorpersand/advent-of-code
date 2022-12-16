@@ -252,7 +252,7 @@ fn leftovers(m: &ValveMap, p: Path) -> BTreeSet<String> {
     let mut nodes: BTreeSet<_> = m.keys().cloned().collect();
     for n in &p.path { nodes.remove(n); }
 
-    return nodes;
+    nodes
 }
 
 fn find_limited_paths(m: &ValveMap, allowed_nodes: &BTreeSet<String>, cap: usize) -> Vec<Path> {
