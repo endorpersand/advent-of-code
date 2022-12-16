@@ -9,7 +9,7 @@ import Control.Monad
 main = do
     input <- readFile "inputs/7.txt"
 
-    let state = instsState $ parseInsts $ tail $ lines input
+    let state = (foldl1' (>>) . parseInsts . tail . lines) input
     let (tree, _) = execState state (emptyDir, [])
 
     print $ sum $ allDirSizesWith (<= 100000) tree
@@ -72,15 +72,12 @@ ls results = do
 
     put (tree', pwd)
 
-data Instruction = Cd (Maybe String) | Ls [Dir]
-    deriving Show
-
 parseInsts lines = case takeLines lines of
     ([], [])  -> []
     ([], _) -> error "unreachable"
     (i:ix, rest)
-        | "$ cd" `isPrefixOf` i -> Cd (filterMaybe (/= "..") $ stripPrefix "$ cd " i) : parseInsts rest
-        | "$ ls" `isPrefixOf` i -> Ls (mapMaybe parseLsFile ix) : parseInsts rest
+        | "$ cd" `isPrefixOf` i -> cd (filterMaybe (/= "..") $ stripPrefix "$ cd " i) : parseInsts rest
+        | "$ ls" `isPrefixOf` i -> ls (mapMaybe parseLsFile ix) : parseInsts rest
         | otherwise -> error "invalid instruction"
     where
         takeLines (l:lx) = let (left, right) = break (isPrefixOf "$") lx in (l:left, right)
@@ -94,8 +91,3 @@ parseInsts lines = case takeLines lines of
         filterMaybe _ Nothing = Nothing
 
 stripPrefix' p = fromJust . stripPrefix p
-
-instsState = foldl1' (>>) . fmap intoState
-    where 
-        intoState (Cd d) = cd d
-        intoState (Ls d) = ls d
