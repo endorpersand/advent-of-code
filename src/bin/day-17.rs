@@ -1,4 +1,4 @@
-use std::collections::{VecDeque, HashMap};
+use std::collections::{VecDeque, HashMap, BTreeMap};
 use std::fs;
 
 fn main() {
@@ -61,38 +61,25 @@ fn main() {
 
     // println!("{map:?}");
 
-    let periodics: Vec<_> = map.values().filter(|v| v.len() == 2).collect();
-    let patient_zero: [_; 2] = periodics.iter()
-        // if next value also has a repeat, then this must mean that this is the period
-        // avoid issue w 92
-        .filter(|v| periodics.iter().any(|w| w[0].0 == v[0].0 + 1)) 
-        
-        .map(|&v| v)
-        .min_by_key(|v| v[0].0)
-        .cloned()
-        .unwrap()
-        .try_into()
+    let periodics: BTreeMap<_, _> = map.into_values()
+        .filter_map(|v| <[_; 2]>::try_from(v).ok())
+        .map(|[(start, sh), (end, eh)]| (start, (end - start, eh - sh, sh)))
+        .collect();
+
+    let p1 = periodics.iter();
+    let mut p2 = periodics.iter();
+    p2.next();
+    let (&start, &(m, dy, _)) = std::iter::zip(p1, p2)
+        .filter_map(|(a @ (k1, _), (&k2, _))| (k1 + 1 == k2).then_some(a))
+        .next()
         .unwrap();
-    let [(start, start_height), (end, end_height)] = patient_zero;
-    let m = end - start;
-    let dy = end_height - start_height;
 
     let x = 1000000000000 - start;
     let (cuts, rest) = (x / m, x % m);
 
-    let extra = if rest > 0 {
-        let mid_height = map.values()
-            .find_map(|vec| {
-                vec.iter()
-                    .find_map(|&(a, b)| (a == start + rest).then_some(b))
-            })
-            .unwrap();
-        mid_height - start_height
-    } else {
-        0
-    };
+    let (_, _, mh) = periodics[&(start + rest)];
 
-    let result = start_height + cuts * dy + extra;
+    let result = cuts * dy + mh;
     println!("{result}");
 }
 
