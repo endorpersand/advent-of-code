@@ -8,8 +8,10 @@ fn main() {
     let set: HashSet<_> = input.lines().map(into_triplet).collect();
     // part A
     let nadjs: usize = set.iter()
-        .map(|&t| count_non_adjacents(&set, t))
-        .sum();
+        .copied()
+        .flat_map(neighbors)
+        .filter(|t| !set.contains(t))
+        .count();
     println!("{nadjs}");
 
     // part B
@@ -26,10 +28,10 @@ fn main() {
         (min - 1) ..= (max + 1)
     };
 
-    let adjs: usize = outer_scan(&set, range)
-        .into_iter()
-        .map(|t| count_adjacents(&set, t))
-        .sum();
+    let adjs: usize = outer_scan(&set, range).into_iter()
+        .flat_map(neighbors)
+        .filter(|t| set.contains(t))
+        .count();
     println!("{adjs}");
 }
 
@@ -54,21 +56,7 @@ fn neighbors((a, b, c): Triplet) -> [Triplet; 6] {
     ]
 }
 
-fn count_non_adjacents(set: &HashSet<Triplet>, t: Triplet) -> usize {
-    neighbors(t)
-        .into_iter()
-        .filter(|t| !set.contains(t))
-        .count()
-}
-
 // part B
-fn count_adjacents(set: &HashSet<Triplet>, t: Triplet) -> usize {
-    neighbors(t)
-        .into_iter()
-        .filter(|t| set.contains(t))
-        .count()
-}
-
 fn outer_scan(set: &HashSet<Triplet>, range: RangeInclusive<isize>) -> HashSet<Triplet> 
 {
     let mut outer = HashSet::new();
