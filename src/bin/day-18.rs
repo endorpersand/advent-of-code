@@ -20,8 +20,8 @@ fn main() {
             .flat_map(|&(a, b, c)| [a, b, c])
             .fold(None, |minmax, t| {
                 minmax
-                    .or(Some((t, t)))
                     .map(|(u1, u2)| (t.min(u1), t.max(u2)))
+                    .or(Some((t, t)))
             }).unwrap();
         (min - 1) ..= (max + 1)
     };
