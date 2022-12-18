@@ -18,12 +18,12 @@ fn main() {
     let range = {
         let (min, max) = set.iter()
             .flat_map(|&(a, b, c)| [a, b, c])
-            .fold((None, None), |(mut min, mut max), t| {
-                min = min.or(Some(t)).map(|u| t.min(u));
-                max = max.or(Some(t)).map(|u| t.max(u));
-                (min, max)
-            });
-        (min.unwrap() - 1) ..= (max.unwrap() + 1)
+            .fold(None, |minmax, t| {
+                minmax
+                    .or(Some((t, t)))
+                    .map(|(u1, u2)| (t.min(u1), t.max(u2)))
+            }).unwrap();
+        (min - 1) ..= (max + 1)
     };
 
     let adjs: usize = outer_scan(&set, range)
