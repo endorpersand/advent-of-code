@@ -11,10 +11,10 @@ fn main() {
     let input = fs::read_to_string("inputs/19.txt").unwrap();
     let blueprints: Vec<Blueprint> = input.lines().map(|s| s.parse().unwrap()).collect();
     
-    // let s = part_a(&test_blueprints);
-    // assert_eq!(s[0], 9);
-    // assert_eq!(s[1], 12);
-    // part_a(&blueprints);
+    let s = part_a(&test_blueprints);
+    assert_eq!(s[0], 9);
+    assert_eq!(s[1], 12);
+    part_a(&blueprints);
 
     let s = part_b(&test_blueprints);
     // assert_eq!(s[0], 56);
@@ -208,8 +208,8 @@ impl Path {
             .unwrap();
 
         // always go for geo/obs
-        if let Some(br) = self.branch(Resource::Geode, caps) { return vec![br]; }
-        else if let Some(br) = self.branch(Resource::Obs, caps) { return vec![br]; }
+        if let Some(br) = self.branch(Resource::Geode, caps) { vec![br] }
+        else if let Some(br) = self.branch(Resource::Obs, caps) { vec![br] }
         else {
             [Some(Resource::Clay), Some(Resource::Ore), None]
                 .into_iter()
