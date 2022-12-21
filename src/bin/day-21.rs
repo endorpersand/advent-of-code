@@ -10,8 +10,7 @@ fn main() {
 
     let humn = input.parse::<Yells>()
         .unwrap()
-        .equation_pt2()
-        .solve();
+        .pt2();
     println!("{:?}", humn);
 }
 
@@ -55,12 +54,9 @@ impl Yells {
 
     fn resolve_awaits(&mut self) {
         self.awaiting.retain(|k, v| {
-            if let Some(i) = v.try_apply(&self.resolved) {
+            v.try_apply(&self.resolved).map(|i| {
                 self.resolved.insert(k.clone(), i);
-                false
-            } else {
-                true
-            }
+            }).is_none()
         });
     }
 
@@ -71,7 +67,7 @@ impl Yells {
         self.resolved.get(k).copied()
     }
 
-    fn equation_pt2(mut self) -> Equation {
+    fn pt2(mut self) -> isize {
         self.resolved.remove("humn");
         let root = self.awaiting.remove("root").unwrap();
 
@@ -90,6 +86,11 @@ impl Yells {
         let (r0, r1) = (root.left, root.right);
 
         // create equation:
+        // pcs are the operations applied to get from humn -> root
+        // these are right to left, so imagine folding from the right to get from humn to root
+        // it's awful i know but simplifies some code
+        
+        // rhs is the value needed for root
         let mut pcs = vec![];
 
         let (mut lhs, rhs) = if let Some(&lval) = resolved.get(&r0) {
@@ -107,10 +108,8 @@ impl Yells {
             pcs.push(pc);
         }
 
-        Equation {
-            lhs: pcs.into_iter().rev().collect(),
-            rhs
-        }
+        pcs.into_iter()
+            .fold(rhs, |rhs, op| op.inverse(rhs))
     }
 }
 
@@ -191,19 +190,5 @@ impl PartialCalc {
                 Operation::Div => rhs * b,
             },
         }
-    }
-}
-
-#[derive(Debug)]
-struct Equation {
-    lhs: Vec<PartialCalc>,
-    rhs: isize
-}
-impl Equation {
-    fn solve(self) -> isize {
-        let Equation { lhs, rhs } = self;
-
-        lhs.iter().rev()
-            .fold(rhs, |rhs, op| op.inverse(rhs))
     }
 }
