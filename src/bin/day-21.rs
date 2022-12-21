@@ -8,24 +8,27 @@ fn main() {
     let mut yells: Yells = input.parse().unwrap();
     println!("{:?}", yells.get("root"));
 
-    let mut yells = input.parse::<Yells>().unwrap().setup_pt2().into_equation();
-    println!("{:?}", yells.solve());
+    let humn = input.parse::<Yells>()
+        .unwrap()
+        .equation_pt2()
+        .solve();
+    println!("{:?}", humn);
 }
 
 #[derive(Debug)]
 enum Operation { Plus, Minus, Mul, Div }
 
 #[derive(Debug)]
-struct Calculation {
+struct PendingCalc {
     left: String,
     right: String,
     op: Operation
 }
 
-impl Calculation {
-    fn try_apply(&self, y: &HashMap<String, isize>) -> Option<isize> {
-        let &left = y.get(&self.left)?;
-        let &right = y.get(&self.right)?;
+impl PendingCalc {
+    fn try_apply(&self, resolved: &HashMap<String, isize>) -> Option<isize> {
+        let &left = resolved.get(&self.left)?;
+        let &right = resolved.get(&self.right)?;
 
         match self.op {
             Operation::Plus  => Some(left + right),
@@ -39,7 +42,7 @@ impl Calculation {
 #[derive(Debug)]
 struct Yells {
     resolved: HashMap<String, isize>,
-    awaiting: HashMap<String, Calculation>
+    awaiting: HashMap<String, PendingCalc>
 }
 
 impl Yells {
@@ -68,7 +71,7 @@ impl Yells {
         self.resolved.get(k).copied()
     }
 
-    fn setup_pt2(mut self) -> Yells2 {
+    fn equation_pt2(mut self) -> Equation {
         self.resolved.remove("humn");
         let root = self.awaiting.remove("root").unwrap();
 
@@ -82,10 +85,31 @@ impl Yells {
             }
         }
         
-        Yells2 {
-            resolved: self.resolved,
-            awaiting: self.awaiting,
-            root: (root.left, root.right),
+        let resolved = self.resolved;
+        let mut awaiting = self.awaiting;
+        let (r0, r1) = (root.left, root.right);
+
+        // create equation:
+        let mut pcs = vec![];
+
+        let (mut lhs, rhs) = if let Some(&lval) = resolved.get(&r0) {
+            (r1, lval)
+        } else if let Some(&rval) = resolved.get(&r1) {
+            (r0, rval)
+        } else {
+            panic!("Both sides of root are unresolved {:?} :(", (r0, r1))
+        };
+
+        let mut pc;
+        while &lhs != "humn" {
+            let calc = awaiting.remove(&lhs).unwrap();
+            (pc, lhs) = PartialCalc::resolve(calc, &resolved);
+            pcs.push(pc);
+        }
+
+        Equation {
+            lhs: pcs.into_iter().rev().collect(),
+            rhs
         }
     }
 }
@@ -109,7 +133,7 @@ impl FromStr for Yells {
         Ok(y)
     }
 }
-impl FromStr for Calculation {
+impl FromStr for PendingCalc {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -135,57 +159,23 @@ impl FromStr for Calculation {
 }
 
 #[derive(Debug)]
-struct Yells2 {
-    resolved: HashMap<String, isize>,
-    awaiting: HashMap<String, Calculation>,
-    root: (String, String)
-}
-
-impl Yells2 {
-    fn into_equation(mut self) -> Equation {
-        let mut pcs = vec![];
-
-        let (r0, r1) = self.root.clone();
-        let (mut lhs, rhs) = if let Some(&lval) = self.resolved.get(&r0) {
-            (r1, lval)
-        } else if let Some(&rval) = self.resolved.get(&r1) {
-            (r0, rval)
-        } else {
-            panic!("Both sides of root are unresolved ({:?}) :(", self.root)
-        };
-
-        let mut pc;
-        while &lhs != "humn" {
-            let calc = self.awaiting.remove(&lhs).unwrap();
-            (pc, lhs) = self.partial(calc);
-            pcs.push(pc);
-        }
-
-        Equation {
-            lhs: pcs.into_iter().rev().collect(),
-            rhs
-        }
-    }
-
-    fn partial(&self, calc: Calculation) -> (PartialCalc, String) {
-        let Calculation { left, right, op } = calc;
-
-        if let Some(&lval) = self.resolved.get(&left) {
-            (PartialCalc::Left(lval, op), right)
-        } else if let Some(&rval) = self.resolved.get(&right) {
-            (PartialCalc::Right(op, rval), left)
-        } else {
-            panic!("Both sides are unresolved ({left:?} {op:?} {right:?}) :(")
-        }
-    }
-}
-
-#[derive(Debug)]
 enum PartialCalc {
     Left(isize, Operation),
     Right(Operation, isize)
 }
 impl PartialCalc {
+    fn resolve(calc: PendingCalc, resolved: &HashMap<String, isize>) -> (Self, String) {
+        let PendingCalc { left, right, op } = calc;
+
+        if let Some(&lval) = resolved.get(&left) {
+            (PartialCalc::Left(lval, op), right)
+        } else if let Some(&rval) = resolved.get(&right) {
+            (PartialCalc::Right(op, rval), left)
+        } else {
+            panic!("Both sides are unresolved ({left:?} {op:?} {right:?}) :(")
+        }
+    }
+
     fn inverse(&self, rhs: isize) -> isize {
         match self {
             PartialCalc::Left(a, op) => match op {
