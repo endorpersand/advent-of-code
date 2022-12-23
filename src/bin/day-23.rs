@@ -67,9 +67,9 @@ struct Grid {
 
 fn neighbors((cx, cy): Coord) -> [Coord; 8] {
     [
-        (cx - 1, cy - 1), (cx + 0, cy - 1), (cx + 1, cy - 1),
-        (cx - 1, cy + 0), /*~~~~~~~~~~~~~*/ (cx + 1, cy + 0),
-        (cx - 1, cy + 1), (cx + 0, cy + 1), (cx + 1, cy + 1),
+        (cx - 1, cy - 1), (cx, cy - 1), (cx + 1, cy - 1),
+        (cx - 1, cy    ), /*~~~~~~~~~*/ (cx + 1, cy    ),
+        (cx - 1, cy + 1), (cx, cy + 1), (cx + 1, cy + 1),
     ]
 }
 fn target_neighbors((cx, cy): Coord, d: Direction) -> impl Iterator<Item=Coord> {

@@ -156,7 +156,7 @@ impl Cubemap {
         }
         let mut map = match chunks.as_slice() {
             // test data
-            &[(0, 2), (1, 0), (1, 1), (1, 2), (2, 2), (2, 3)] => map! {
+            [(0, 2), (1, 0), (1, 1), (1, 2), (2, 2), (2, 3)] => map! {
                 0 => map! {
                     Direction::Right => (5, Direction::Left),
                     Direction::Down => (3, Direction::Down),
@@ -195,7 +195,7 @@ impl Cubemap {
                 }
             },
             // actual data
-            &[(0, 1), (0, 2), (1, 1), (2, 0), (2, 1), (3, 0)] => map! {
+            [(0, 1), (0, 2), (1, 1), (2, 0), (2, 1), (3, 0)] => map! {
                 0 => map! {
                     Direction::Right => (1, Direction::Right),
                     Direction::Down => (2, Direction::Down),
