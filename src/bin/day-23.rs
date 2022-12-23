@@ -1,4 +1,4 @@
-use std::collections::{VecDeque, HashSet, HashMap};
+use std::collections::{VecDeque, HashSet};
 use std::fmt::Write;
 use std::fs;
 use std::str::FromStr;
@@ -23,10 +23,7 @@ fn main() {
     // part B
     for i in 11.. {
         // we changed indexes isn't that funny
-        let old_on = grid.on.clone();
-        grid.round();
-
-        if old_on == grid.on {
+        if !grid.round() {
             println!("{i}");
             break;
         }
@@ -51,18 +48,23 @@ impl Direction {
     fn delta(self) -> [Coord; 3] {
         let main @ (mr, mc) = self.main();
 
-        let (ml, mr) = match self {
-            Direction::North | Direction::South => ((mr, mc + 1), (mr, mc - 1)),
-            Direction::East | Direction::West   => ((mr + 1, mc), (mr - 1, mc)),
+        let (mleft, mright) = match self {
+            Direction::North | Direction::South => ((mr, mc - 1), (mr, mc + 1)),
+            Direction::East | Direction::West   => ((mr - 1, mc), (mr + 1, mc)),
         };
         
-        [main, ml, mr]
+        [mleft, main, mright]
+    }
+
+    fn do_move(self, (r, c): Coord) -> Coord {
+        let (dr, dc) = self.main();
+        (r + dr, c + dc)
     }
 }
 struct Grid {
     on: HashSet<Coord>,
     options: VecDeque<Direction>,
-    new_pos: HashMap<Coord, Vec<Coord>>, /* the dest, all coordinates that asked */
+    new_pos: HashSet<Coord>,
 }
 
 fn neighbors((cx, cy): Coord) -> [Coord; 8] {
@@ -87,7 +89,7 @@ impl Grid {
                 Direction::West, 
                 Direction::East
             ].into_iter().collect(),
-            new_pos: HashMap::new(),
+            new_pos: HashSet::new(),
         }
     }
 
@@ -95,36 +97,42 @@ impl Grid {
         it.into_iter().all(|c| !self.on.contains(&c))
     }
 
-    fn round(&mut self) {
+    // true if anything changed
+    fn round(&mut self) -> bool {
         for &c in self.on.iter() {
             // no neighbors? don't move
             if self.is_free(neighbors(c)) {
-                self.new_pos.entry(c).or_default().push(c);
+                self.new_pos.insert(c);
             } else {
-                let new_pos = self.options.iter()
+                let new_dir = self.options.iter()
                     // .inspect(|&&d| println!("checking {:?}", target_neighbors(c, d).collect::<Vec<_>>()))
-                    .find_map(|&d| {
-                        self.is_free(target_neighbors(c, d)).then(|| d.main())
-                    })
-                    .map(|d| (c.0 + d.0, c.1 + d.1))
-                    .unwrap_or(c);
+                    .copied()
+                    .find(|&d| {
+                        self.is_free(target_neighbors(c, d))
+                    });
                 // println!("new pos: {new_pos:?}");
-                self.new_pos.entry(new_pos).or_default().push(c);
+                
+                if let Some(d) = new_dir {
+                    let new_pos = d.do_move(c);
+                    if !self.new_pos.insert(new_pos) {
+                        // fail means there was an elf there, so move them back
+                        self.new_pos.remove(&new_pos);
+                        self.new_pos.insert(d.do_move(new_pos));
+                        self.new_pos.insert(c);
+                    }
+                } else {
+                    self.new_pos.insert(c);
+                }
             }
         }
         
-        self.on.clear();
-        for (dest, orig) in self.new_pos.drain() {
-            if orig.len() == 1 {
-                // if only one elf wants to move, then let them
-                self.on.insert(dest);
-            } else {
-                // if multiple want to, then they can't.
-                self.on.extend(orig);
-            }
-        }
-
         self.options.rotate_left(1);
+        let check = self.on != self.new_pos;
+        if check {
+            std::mem::swap(&mut self.on, &mut self.new_pos);
+            self.new_pos.clear();
+        }
+        check
     }
 
     fn bool_grid(&self) -> Vec<Vec<bool>> {
