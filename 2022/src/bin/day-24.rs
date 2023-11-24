@@ -88,13 +88,7 @@ struct Grid {
 
 impl Grid {
     fn zeroed(&self) -> Vec<Vec<u8>> {
-        std::iter::from_fn(|| {
-            let mut vec = vec![];
-            vec.resize(self.cols, 0);
-            Some(vec)
-        })
-            .take(self.rows)
-            .collect()
+        vec![vec![0; self.cols]; self.rows]
     }
 
     #[inline]

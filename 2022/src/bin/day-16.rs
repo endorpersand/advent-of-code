@@ -81,7 +81,8 @@ impl FromStr for Pair<String, Valve> {
 fn reduce_valve_map(m: &mut ValveMap) {
     // Remove all 0s except for AA
     let remove_keys: Vec<_> = m.iter()
-        .filter_map(|(k, v)| (k != "AA" && v.rate == 0).then(|| k.clone()))
+        .filter(|&(k, v)| k != "AA" && v.rate == 0)
+        .map(|(k, _)| k.clone())
         .collect();
     
     for k1 in remove_keys {
