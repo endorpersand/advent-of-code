@@ -12,6 +12,11 @@ fn main() {
         .map(get_calibration_b)
         .sum();
     println!("{sum}");
+
+    let sum: usize = txt.lines()
+        .map(get_calibration_b_refactored)
+        .sum();
+    println!("{sum}");
 }
 
 fn get_calibration(s: &str) -> usize {
@@ -56,5 +61,24 @@ fn get_calibration_b(s: &str) -> usize {
         _ => unreachable!()
     };
 
+    left * 10 + right
+}
+fn get_calibration_b_refactored(s: &str) -> usize {
+    let counts = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"];
+
+    let left = counts.into_iter()
+        .enumerate()
+        .filter_map(|(val, key)| s.find(key).map(|idx| (idx, val)))
+        .chain(s.find(|c: char| c.is_ascii_digit()).map(|idx| (idx, s[idx..(idx+1)].parse().unwrap())))
+        .min()
+        .unwrap()
+        .1;
+    let right = counts.into_iter()
+        .enumerate()
+        .filter_map(|(val, key)| s.rfind(key).map(|idx| (idx, val)))
+        .chain(s.rfind(|c: char| c.is_ascii_digit()).map(|idx| (idx, s[idx..(idx+1)].parse().unwrap())))
+        .max()
+        .map_or(left, |(_, val)| val);
+    
     left * 10 + right
 }
