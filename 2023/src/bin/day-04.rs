@@ -6,17 +6,16 @@ use regex::Regex;
 fn main() {
     let txt = std::fs::read_to_string("inputs/04.txt").unwrap();
     
-    let out: usize = txt.lines()
-        .map(|l| parse_card_basic(l).1)
-        .map(|hits| if hits == 0 { 0 } else { 1 << (hits - 1) })
-        .sum();
-    println!("{out}");
-
     let n_wins: HashMap<_, _> = txt.lines()
         .map(parse_card_basic)
         .collect();
-    let n_lines = txt.lines().count();
 
+    let out: usize = n_wins.values()
+        .map(|&hits| if hits != 0 { 1 << (hits - 1) } else { 0 })
+        .sum();
+    println!("{out}");
+
+    let n_lines = txt.lines().count();
     let mut ctr = vec![1usize; n_lines];
     for i in 0..n_lines {
         let n_cards = ctr[i];
