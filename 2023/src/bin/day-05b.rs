@@ -10,7 +10,6 @@ fn main() {
         .collect();
     let mappers: Vec<_> = mappers.into_iter()
         .map(RangedMapper::from)
-        .inspect(|s| println!("{s:?}"))
         .collect();
     
     let mut seed_frontier = seed_ranges.clone();
@@ -31,7 +30,6 @@ fn main() {
             .collect()
     }
     
-    println!("{}", seed_frontier.len());
     println!("{:?}", seed_frontier.iter().map(|r| r.start).min());
 }
 
