@@ -12,15 +12,10 @@ fn main() {
 
             let min = (half_t - discrim).max(0.);
             let max = half_t + discrim;
-            
-            let min_next = min.ceil();
-            let min_int = if min_next == min { (min_next as usize) + 1 } else { min_next as usize };
-            let max_prev = max.floor();
-            let max_int = if max_prev == max { (max_prev as usize) - 1 } else { max_prev as usize };
 
-            min_int ..= max_int
+            ((min + 0.01).ceil() as usize) ..= ((max - 0.01).floor() as usize)
         })
-        .map(|c| dbg!(c.count()))
+        .map(|c| c.count())
         .product();
     println!("{out}");
 }
