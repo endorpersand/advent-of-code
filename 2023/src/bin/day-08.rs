@@ -13,33 +13,35 @@ fn main() {
         .enumerate();
 
     let mut current = *b"AAA";
-    for (_, dir) in dir_it.by_ref() {
+    while &current != b"ZZZ" {
+        let (_, dir) = dir_it.next().unwrap();
         current = paths[&current][dir as usize];
-        if &current == b"ZZZ" { break; }
     }
     let out = dir_it.next().unwrap().0;
     println!("{out}");
 
-    let mut current2: Vec<_> = paths.keys().copied().filter(|[_, _, end]| end == &b'A').collect();
+    let mut current2: Vec<_> = paths.keys()
+        .copied()
+        .filter(|code| code.ends_with(b"A"))
+        .collect();
     let mut done = Vec::with_capacity(current2.len());
-
     let mut dir_it = dirs.iter()
         .copied()
         .cycle()
         .enumerate();
-    for (step, dir) in dir_it.by_ref() {
+
+    while !current2.is_empty() {
+        let (step, dir) = dir_it.next().unwrap();
+
         for curr in std::mem::take(&mut current2) {
             let next = paths[&curr][dir as usize];
-            if next[2] == b'Z' {
-                done.push(step + 1);
-            } else {
-                current2.push(next);
+            match next[2] {
+                b'Z' => done.push(step + 1),
+                _ => current2.push(next)
             }
         }
-
-        if current2.is_empty() { break; }
     }
-    let out = done.iter().copied().fold(1, lcm);
+    let out = done.into_iter().fold(1, lcm);
     println!("{out}");
 }
 
