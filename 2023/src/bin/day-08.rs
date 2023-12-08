@@ -14,7 +14,7 @@ fn main() {
 
     let mut current = *b"AAA";
     for (_, dir) in dir_it.by_ref() {
-        current = paths[&current][if dir { 1 } else { 0 }];
+        current = paths[&current][dir as usize];
         if &current == b"ZZZ" { break; }
     }
     let out = dir_it.next().unwrap().0;
@@ -29,7 +29,7 @@ fn main() {
         .enumerate();
     for (step, dir) in dir_it.by_ref() {
         for curr in std::mem::take(&mut current2) {
-            let next = paths[&curr][if dir { 1 } else { 0 }];
+            let next = paths[&curr][dir as usize];
             if next[2] == b'Z' {
                 done.push(step + 1);
             } else {
