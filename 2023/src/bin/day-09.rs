@@ -33,10 +33,10 @@ fn compute_next(data: &[isize]) -> isize {
     let mut rhs = 0;
 
     let mut remaining = data.to_vec();
-    while !remaining.is_empty() {
-        rhs += remaining.last().unwrap();
-        remaining = std::iter::zip(remaining.iter(), remaining.iter().skip(1))
-            .map(|(&a, &b)| b - a)
+    while let &[.., last] = &*remaining {
+        rhs += last;
+        remaining = remaining.windows(2)
+            .map(|s| s[1] - s[0])
             .collect();
     }
 
@@ -46,10 +46,10 @@ fn compute_prev(data: &[isize]) -> isize {
     let mut lhs = vec![];
 
     let mut remaining = data.to_vec();
-    while !remaining.is_empty() {
-        lhs.push(*remaining.first().unwrap());
-        remaining = std::iter::zip(remaining.iter(), remaining.iter().skip(1))
-            .map(|(&a, &b)| b - a)
+    while let &[first, ..] = &*remaining {
+        lhs.push(first);
+        remaining = remaining.windows(2)
+            .map(|s| s[1] - s[0])
             .collect();
     }
 
