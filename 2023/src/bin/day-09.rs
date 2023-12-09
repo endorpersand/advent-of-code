@@ -43,15 +43,18 @@ fn compute_next(data: &[isize]) -> isize {
     rhs
 }
 fn compute_prev(data: &[isize]) -> isize {
-    let mut lhs = 0;
+    let mut lhs = vec![];
 
     let mut remaining = data.to_vec();
     while !remaining.is_empty() {
-        lhs = remaining.first().unwrap() - lhs;
+        lhs.push(*remaining.first().unwrap());
         remaining = std::iter::zip(remaining.iter(), remaining.iter().skip(1))
             .map(|(&a, &b)| b - a)
             .collect();
     }
 
-    lhs
+    lhs.into_iter()
+       .rev()
+       .reduce(|acc, cv| cv - acc)
+       .unwrap()
 }
