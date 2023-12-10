@@ -1,3 +1,5 @@
+// This solution applies ray casting for part B.
+
 use std::collections::HashMap;
 
 use once_cell::sync::Lazy;
