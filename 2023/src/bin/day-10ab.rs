@@ -52,7 +52,6 @@ fn main() {
                     .filter(|side| vec.is_intersecting(side))
                     .count();
 
-                if intersects % 2 == 1 { println!("{end:?}, {:?}, {intersects}", grid[*end]); }
                 intersects % 2 == 1
             })
             .count()
