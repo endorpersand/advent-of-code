@@ -1,23 +1,8 @@
 fn main() {
     let txt = std::fs::read_to_string("inputs/06.txt").unwrap();
-    let State { time, dist } = parse2(&txt); // j switch between parse and parse2
 
-    let out: usize = std::iter::zip(&time, &dist)
-        .map(|(&t, &d)| {
-            let t = t as f64;
-            let d = d as f64;
-
-            let half_t = t / 2.;
-            let discrim = (t.powi(2) - 4. * d).sqrt() / 2.;
-
-            let min = (half_t - discrim).max(0.);
-            let max = half_t + discrim;
-
-            ((min + 0.01).ceil() as usize) ..= ((max - 0.01).floor() as usize)
-        })
-        .map(|c| c.count())
-        .product();
-    println!("{out}");
+    println!("{}", parse(&txt).compute_answer());
+    println!("{}", parse2(&txt).compute_answer());
 }
 
 #[derive(Debug)]
@@ -50,4 +35,24 @@ fn parse2(file: &str) -> State {
     let dist = dist_it.collect::<String>().parse().unwrap();
 
     State { time: vec![time], dist: vec![dist] }
+}
+
+impl State {
+    fn compute_answer(&self) -> usize {
+        std::iter::zip(&self.time, &self.dist)
+            .map(|(&t, &d)| {
+                let t = t as f64;
+                let d = d as f64;
+
+                let half_t = t / 2.;
+                let discrim = (t.powi(2) - 4. * d).sqrt() / 2.;
+
+                let min = (half_t - discrim).max(0.);
+                let max = half_t + discrim;
+
+                ((min + 0.01).ceil() as usize) ..= ((max - 0.01).floor() as usize)
+            })
+            .map(|c| c.count())
+            .product()
+    }
 }
