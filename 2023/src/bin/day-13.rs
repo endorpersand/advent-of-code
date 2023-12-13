@@ -62,34 +62,31 @@ impl Grid {
     fn rows(&self) -> usize {
         self.buffer.len() / self.cols
     }
-    fn get_row(&self, r: usize) -> Option<&[bool]> {
-        self.buffer.get((r * self.cols) .. ((r + 1) * self.cols))
+    fn index_row(&self, r: usize) -> &[bool] {
+        &self.buffer[(r * self.cols) .. ((r + 1) * self.cols)]
     }
     fn check_horiz(&self) -> Option<usize> {
         (0usize..self.rows())
             .tuple_windows()
             .find(|&(a, b)| {
                 std::iter::zip((0..=a).rev(), b..self.rows())
-                    .all(|(x, y)| self.get_row(x) == self.get_row(y))
+                    .all(|(x, y)| self.index_row(x) == self.index_row(y))
             })
             .map(|(_, b)| b)
     }
 
-    fn get_col(&self, c: usize) -> Option<Vec<bool>> {
-        (0..self.cols).contains(&c)
-            .then(|| {
-                self.buffer[c..].iter()
-                    .copied()
-                    .step_by(self.cols)
-                    .collect()
-            })
+    fn index_col(&self, c: usize) -> Vec<bool> {
+        self.buffer[c..].iter()
+            .copied()
+            .step_by(self.cols)
+            .collect()
     }
     fn check_vert(&self) -> Option<usize> {
         (0usize..self.cols)
             .tuple_windows()
             .find(|&(a, b)| {
                 std::iter::zip((0..=a).rev(), b..self.cols)
-                    .all(|(x, y)| self.get_col(x) == self.get_col(y))
+                    .all(|(x, y)| self.index_col(x) == self.index_col(y))
             })
             .map(|(_, b)| b)
     }
@@ -109,19 +106,15 @@ impl Grid {
         (0usize..self.rows())
             .tuple_windows()
             .find(|&(a, b)| {
-                let mut ct = [0; 2];
+                let diffs = std::iter::zip((0..=a).rev(), b..self.rows())
+                    .map(|(x, y)| {
+                        let xx = into_u64(self.index_row(x));
+                        let yy = into_u64(self.index_row(y));
 
-                for (x, y) in std::iter::zip((0..=a).rev(), b..self.rows()) {
-                    let xx = into_u64(self.get_row(x).unwrap());
-                    let yy = into_u64(self.get_row(y).unwrap());
+                        (xx ^ yy).count_ones()
+                    }).sum::<u32>();
 
-                    let Some(cti) = ct.get_mut((xx ^ yy).count_ones() as usize) else {
-                        return false
-                    };
-                    *cti += 1;
-                }
-                
-                ct[1] == 1
+                diffs == 1
             })
             .map(|(_, b)| b)
     }
@@ -130,19 +123,15 @@ impl Grid {
         (0usize..self.cols)
             .tuple_windows()
             .find(|&(a, b)| {
-                let mut ct = [0; 2];
+                let diffs = std::iter::zip((0..=a).rev(), b..self.cols)
+                    .map(|(x, y)| {
+                        let xx = into_u64(&self.index_col(x));
+                        let yy = into_u64(&self.index_col(y));
 
-                for (x, y) in std::iter::zip((0..=a).rev(), b..self.cols) {
-                    let xx = into_u64(&self.get_col(x).unwrap());
-                    let yy = into_u64(&self.get_col(y).unwrap());
+                        (xx ^ yy).count_ones()
+                    }).sum::<u32>();
 
-                    let Some(cti) = ct.get_mut((xx ^ yy).count_ones() as usize) else {
-                        return false
-                    };
-                    *cti += 1;
-                }
-                
-                ct[1] == 1
+                diffs == 1
             })
             .map(|(_, b)| b)
     }
