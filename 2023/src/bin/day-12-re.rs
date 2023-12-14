@@ -52,7 +52,7 @@ enum Cond {
 #[derive(Clone, PartialEq, Eq, Debug)]
 struct SpringConfig {
     text: Vec<Cond>,
-    count: Vec<usize>
+    count: Vec<u8>
 }
 #[derive(Debug)]
 struct State {
@@ -114,15 +114,15 @@ impl DamageBlock {
     fn size(&self) -> u8 {
         (self.buffer >> 120) as u8
     }
-    fn fits(&self, cts: &[usize]) -> bool {
-        let s: usize = cts.iter().sum();
+    fn fits(&self, cts: &[u8]) -> bool {
+        let s = cts.iter().copied().fold(0u8, u8::saturating_add);
 
         // if cts has less knowns than this block has, it cannot pass
         // if cts requires more space than exists in this block, then it also cannot pass
-        self.count_knowns() <= s && (s + cts.len().saturating_sub(1)) as u8 <= self.size()
+        self.count_knowns() <= s && s.saturating_sub(1).saturating_add(cts.len() as u8) <= self.size()
     }
-    fn count_knowns(&self) -> usize {
-        (self.buffer & ((1 << 120) - 1)).count_ones() as usize
+    fn count_knowns(&self) -> u8 {
+        (self.buffer & ((1 << 120) - 1)).count_ones() as u8
     }
     fn take(&self, n: u8) -> Option<DamageBlock> {
         match self.size().cmp(&n) {
@@ -136,7 +136,7 @@ impl DamageBlock {
             }
         }
     }
-    fn count_possible(&self, cts: &[usize], cache: &mut Cache) -> usize {
+    fn count_possible(&self, cts: &[u8], cache: &mut Cache) -> usize {
         if !self.fits(cts) { return 0 };
 
         let Some((&ct0, ct_rest)) = cts.split_first() else {
@@ -153,7 +153,7 @@ impl DamageBlock {
         let bl = (self.buffer.trailing_zeros() as u8).min(self.size());
 
         let pos = (0..=bl)
-            .filter_map(|shift| self.take(shift + ct0 as u8))
+            .filter_map(|shift| self.take(shift + ct0))
             .map(|block| block.count_possible(ct_rest, cache))
             .sum::<usize>();
 
@@ -166,7 +166,7 @@ impl DamageBlock {
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
 struct SpringConfigB {
     blocks: Vec<DamageBlock>,
-    count: Vec<usize>
+    count: Vec<u8>
 }
 
 impl SpringConfigB {
@@ -188,7 +188,7 @@ impl SpringConfigB {
     }
 }
 
-fn count_possible(blocks: &[DamageBlock], count: &[usize], cache: &mut Cache) -> usize {
+fn count_possible(blocks: &[DamageBlock], count: &[u8], cache: &mut Cache) -> usize {
     if count.is_empty() {
         return usize::from(blocks.iter().all(|b| b.count_knowns() == 0));
     }
