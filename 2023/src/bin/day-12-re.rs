@@ -114,7 +114,11 @@ impl DamageBlock {
         self.size as usize
     }
     fn fits(&self, cts: &[usize]) -> bool {
-        cts.is_empty() || cts.iter().sum::<usize>() + cts.len() - 1 <= self.size()
+        let s: usize = cts.iter().sum();
+
+        // if cts has less knowns than this block has, it cannot pass
+        // if cts requires more space than exists in this block, then it also cannot pass
+        self.count_knowns() <= s && s + cts.len().saturating_sub(1) <= self.size()
     }
     fn count_knowns(&self) -> usize {
         self.buffer.count_ones() as usize
@@ -132,6 +136,8 @@ impl DamageBlock {
         }
     }
     fn count_possible(&self, cts: &[usize], cache: &mut Cache) -> usize {
+        if !self.fits(cts) { return 0 };
+
         let Some((&ct0, ct_rest)) = cts.split_first() else {
             // if counts is empty,
             // there is one possibility if there are no knowns
@@ -146,8 +152,7 @@ impl DamageBlock {
         let bl = (self.buffer.trailing_zeros() as u8).min(self.size);
 
         let pos = (0..=bl)
-            .map(|shift| DamageBlock::new(self.buffer >> shift, self.size - shift))
-            .filter_map(|block| block.take(ct0 as u8))
+            .filter_map(|shift| self.take(shift + ct0 as u8))
             .map(|block| block.count_possible(ct_rest, cache))
             .sum::<usize>();
 
@@ -204,12 +209,11 @@ fn count_possible(blocks: &[DamageBlock], count: &[usize], cache: &mut Cache) ->
 
     for i in 0..=count.len() {
         let (ct_left, ct_right) = count.split_at(i);
-        if !b0.fits(ct_left) { break; }
 
         // short circuit optimization
-        let choice_pos = NonZeroUsize::new(b0.count_possible(ct_left, cache))
-            .map_or(0, |l| l.get() * count_possible(b_rest, ct_right, cache));
-        possibilities += choice_pos;
+        let Some(left_pos) = NonZeroUsize::new(b0.count_possible(ct_left, cache)) else { continue };
+        let right_pos = count_possible(b_rest, ct_right, cache);
+        possibilities += left_pos.get() * right_pos;
     }
 
     cache.insert(cfg, possibilities);
