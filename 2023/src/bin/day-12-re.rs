@@ -11,7 +11,7 @@ fn main() {
         let out: usize = springs.iter()
             .cloned()
             .map(SpringConfigB::new)
-            .map(|spring| spring.count_possibilities_b(&mut cache))
+            .map(|spring| count_possibilities(&spring.blocks, &spring.count, &mut cache))
             .sum();
         assert_eq!(out, 7379);
         println!("{out}");
@@ -22,7 +22,7 @@ fn main() {
             .cloned()
             .map(SpringConfig::convert_to_config_b)
             .map(SpringConfigB::new)
-            .map(|spring| spring.count_possibilities_b(&mut cache))
+            .map(|spring| count_possibilities(&spring.blocks, &spring.count, &mut cache))
             .sum();
         assert_eq!(out, 7732028747925);
         println!("{out}");
@@ -132,15 +132,16 @@ impl DamageBlock {
         }
     }
     fn count_possibilities(&self, cts: &[usize], cache: &mut Cache) -> usize {
-        let cfg = SpringConfigB { blocks: vec![self.clone()], count: cts.to_vec() };
-        if let Some(&pos) = cache.get(&cfg) { return pos; }
-        
         let Some((&ct0, ct_rest)) = cts.split_first() else {
             // if counts is empty,
             // there is one possibility if there are no knowns
             // and no possibilities if there are knowns
                 return usize::from(self.count_knowns() == 0);
         };
+
+        let cfg = SpringConfigB { blocks: vec![self.clone()], count: cts.to_vec() };
+        if let Some(&pos) = cache.get(&cfg) { return pos; }
+
         // number of trailing ?s
         let bl = (self.buffer.trailing_zeros() as u8).min(self.size);
 
@@ -178,42 +179,37 @@ impl SpringConfigB {
 
         SpringConfigB { blocks, count }
     }
+}
 
-    fn count_possibilities_b(&self, cache: &mut Cache) -> usize {
-        if self.count.is_empty() {
-            return usize::from(self.blocks.iter().all(|b| b.count_knowns() == 0));
-        }
-        if self.blocks.is_empty() {
-            // by check above, there are counts left,
-            // but no more blocks are left
-            return 0;
-        }
-
-        if let Some(&pos) = cache.get(self) { return pos; }
-
-        // for every n in 0..len(count), 
-        // include count[0..n] in first block, and count[n..] in remaining
-        let (b1, brest) = self.blocks.split_first()
-            .expect("block had at least 1 el");
-        
-        let mut possibilities: usize = 0;
-
-        for i in 0..=self.count.len() {
-            let first_cts = &self.count[0..i];
-            if !b1.fits_n(first_cts) { break; }
-
-            let first_pos = b1.count_possibilities(first_cts, cache);
-
-            let rest_cfg = SpringConfigB {
-                blocks: brest.to_vec(),
-                count: self.count[i..].to_vec()
-            };
-            let rest_pos = rest_cfg.count_possibilities_b(cache);
-
-            possibilities += first_pos * rest_pos;
-        }
-
-        cache.insert(self.clone(), possibilities);
-        possibilities
+fn count_possibilities(blocks: &[DamageBlock], count: &[usize], cache: &mut Cache) -> usize {
+    if count.is_empty() {
+        return usize::from(blocks.iter().all(|b| b.count_knowns() == 0));
     }
+    if blocks.is_empty() {
+        // by check above, there are counts left,
+        // but no more blocks are left
+        return 0;
+    }
+
+    let cfg = SpringConfigB { blocks: blocks.to_vec(), count: count.to_vec() };
+    if let Some(&pos) = cache.get(&cfg) { return pos; }
+
+    // for every n in 0..len(count), 
+    // include count[0..n] in first block, and count[n..] in remaining
+    let (b0, b_rest) = blocks.split_first()
+        .expect("block had at least 1 el");
+    
+    let mut possibilities: usize = 0;
+
+    for i in 0..=count.len() {
+        let (ct_left, ct_right) = count.split_at(i);
+        if !b0.fits_n(ct_left) { break; }
+
+        let first_pos = b0.count_possibilities(ct_left, cache);
+        let rest_pos = count_possibilities(b_rest, ct_right, cache);
+        possibilities += first_pos * rest_pos;
+    }
+
+    cache.insert(cfg, possibilities);
+    possibilities
 }
