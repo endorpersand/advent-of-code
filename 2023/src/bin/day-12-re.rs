@@ -1,8 +1,6 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
-use itertools::Itertools as _;
-
 fn main() {
     let txt = std::fs::read_to_string("inputs/12.txt").unwrap();
     let State { springs } = parse(&txt);
@@ -96,99 +94,64 @@ impl SpringConfig {
 }
 
 type Cache = HashMap<SpringConfigB, usize>;
+
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
 struct DamageBlock {
-    known_start: bool,
-    block: Vec<usize>
+    // The damage block exists in the least significant `size` bits of this buffer.
+    // The line configuration starts from the LSB and moves to the MSB.
+    buffer: u128,
+    size: u8
 }
 impl DamageBlock {
-    fn new(mut known_start: bool, mut block: Vec<usize>) -> Self {
-        let nz = block.iter().position(|&p| p != 0).unwrap_or(block.len());
-        let nz_block = block.split_off(nz);
-
-        known_start ^= block.len() % 2 != 0;
-        Self { known_start, block: nz_block }
+    fn new(buffer: u128, size: u8) -> Self {
+        // buffer: clear out unused bits to appease equality/hash
+        Self { buffer: buffer & ((1 << size) - 1), size }
     }
-
+    fn size(&self) -> usize {
+        self.size as usize
+    }
     fn fits(&self, ct: usize) -> bool {
-        ct <= self.block.iter().sum::<usize>()
+        ct <= self.size()
     }
     fn fits_n(&self, cts: &[usize]) -> bool {
-        if cts.is_empty() { true } else { self.fits(cts.iter().sum::<usize>() + cts.len() - 1) }
-    }
-    fn take(&self, n: usize) -> Option<DamageBlock> {
-        assert_ne!(n, 0);
-
-        let (&b, rest) = self.block.split_first()?;
-        match b.cmp(&n) {
-            Ordering::Less => {
-                DamageBlock::new(!self.known_start, rest.to_vec())
-                    .take(n - b)
-            },
-            Ordering::Equal => {
-                if rest.is_empty() {
-                    Some(DamageBlock::new(!self.known_start, vec![]))
-                } else {
-                    match self.known_start {
-                        true => {
-                            let mut block = rest.to_vec();
-                            block[0] -= 1;
-                            Some(DamageBlock::new(!self.known_start, block))
-                        },
-                        false => None,
-                    }
-                }
-            },
-            Ordering::Greater => {
-                match self.known_start {
-                    true => None,
-                    false => {
-                        let mut block = self.block.clone();
-                        block[0] -= n + 1;
-                        Some(DamageBlock::new(self.known_start, block))
-                    }
-                }
-            },
-        }
-    }
-
-    fn count_possibilities(&self, cts: &[usize], cache: &mut Cache) -> usize {
-        let cfg = SpringConfigB {
-            blocks: vec![self.clone()],
-            count: cts.to_vec()
-        };
-        if let Some(&pos) = cache.get(&cfg) { return pos };
-        
-        let pos = if cts.is_empty() {
-            if self.count_knowns() == 0 { 1 } else { 0 }
-        } else if self.block.is_empty() {
-            0
-        } else {
-            let Some(&bl) = self.block.first() else { panic!("block shouldn't be empty") };
-            match self.known_start {
-                true => self.take(cts[0]).map_or(0, |t| t.count_possibilities(&cts[1..], cache)),
-                false => {
-                    (0..=bl).filter_map(|i| {
-                        let mut new_block = self.block.clone();
-                        new_block[0] = i;
-
-                        DamageBlock::new(self.known_start, new_block)
-                            .take(cts[0])
-                    })
-                    .map(|block| block.count_possibilities(&cts[1..], cache))
-                    .sum::<usize>()
-                },
-            }
-        };
-        
-        cache.insert(cfg, pos);
-        pos
+        cts.is_empty() || cts.iter().sum::<usize>() + cts.len() - 1 <= self.size()
     }
     fn count_knowns(&self) -> usize {
-        let mut blit = self.block.iter();
-        if !self.known_start { blit.next(); }
+        self.buffer.count_ones() as usize
+    }
+    fn take(&self, n: u8) -> Option<DamageBlock> {
+        match self.size.cmp(&n) {
+            Ordering::Less    => None,
+            Ordering::Equal   => Some(Self::new(0, 0)),
+            Ordering::Greater => {
+                // nth item in buffer has to be 0 
+                // (since we're emulating taking an operational)
+                let buf = self.buffer >> n;
+                (buf & 1 == 0).then(|| Self::new(buf >> 1, self.size - n - 1))
+            }
+        }
+    }
+    fn count_possibilities(&self, cts: &[usize], cache: &mut Cache) -> usize {
+        let cfg = SpringConfigB { blocks: vec![self.clone()], count: cts.to_vec() };
+        if let Some(&pos) = cache.get(&cfg) { return pos; }
+        
+        let Some((&ct0, ct_rest)) = cts.split_first() else {
+            // if counts is empty,
+            // there is one possibility if there are no knowns
+            // and no possibilities if there are knowns
+                return usize::from(self.count_knowns() == 0);
+        };
+        // number of trailing ?s
+        let bl = (self.buffer.trailing_zeros() as u8).min(self.size);
 
-        blit.step_by(2).sum()
+        let pos = (0..=bl).map(|shift| DamageBlock::new(self.buffer >> shift, self.size - shift))
+            .filter_map(|block| block.take(ct0 as u8))
+            .map(|block| block.count_possibilities(ct_rest, cache))
+            .sum::<usize>();
+
+        cache.insert(cfg, pos);
+
+        pos
     }
 }
 
@@ -202,20 +165,14 @@ impl SpringConfigB {
     fn new(cfg: SpringConfig) -> Self {
         let SpringConfig { text, count } = cfg;
         
-        let blocks = text.into_iter()
-            .group_by(|&k| k)
-            .into_iter()
-            .map(|(k, gr)| (k, gr.count()))
-            .group_by(|&(k, _)| matches!(k, Cond::Operational))
-            .into_iter()
-            .filter(|&(operational, _)| !operational)
-            .map(|(_, mut gr)| {
-                let (first_fill, first_block) = gr.next().unwrap();
-                
-                let mut block = vec![first_block];
-                block.extend(gr.map(|(_, ct)| ct));
+        let blocks = text.split(|&k| k == Cond::Operational)
+            .filter(|s| !s.is_empty())
+            .map(|s| {
+                let size = s.len();
+                let buffer = s.iter()
+                    .rfold(0, |acc, &cv| acc << 1 | u128::from(cv == Cond::Damaged));
 
-                DamageBlock::new(first_fill != Cond::Unknown, block)
+                DamageBlock::new(buffer, u8::try_from(size).unwrap())
             })
             .collect();
 
