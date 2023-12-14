@@ -1,7 +1,9 @@
 use std::borrow::Cow;
 use std::cmp::Ordering;
-use std::collections::HashMap;
 use std::num::NonZeroUsize;
+
+use rayon::prelude::*;
+use rustc_hash::FxHashMap;
 
 fn main() {
     let txt = std::fs::read_to_string("inputs/12.txt").unwrap();
@@ -11,10 +13,12 @@ fn main() {
             .map(Line::parse)
             .map(SpringRecord::new)
             .collect();
-        let mut cache = Cache::new();
 
-        let out: usize = rec.iter()
-            .map(|spring| count_possible(&spring.blocks, &spring.count, &mut cache))
+        let out: usize = rec.par_iter()
+            .map_init(
+                Cache::default,
+                |cache, spring| count_possible(&spring.blocks, &spring.count, cache)
+            )
             .sum();
         assert_eq!(out, 7379);
         println!("{out}");
@@ -26,10 +30,12 @@ fn main() {
             .map(Line::convert_to_config_b)
             .map(SpringRecord::new)
             .collect();
-        let mut cache = Cache::new();
 
-        let out: usize = rec.iter()
-            .map(|spring| count_possible(&spring.blocks, &spring.count, &mut cache))
+        let out: usize = rec.par_iter()
+            .map_init(
+                Cache::default,
+                |cache, spring| count_possible(&spring.blocks, &spring.count, cache)
+            )
             .sum();
         assert_eq!(out, 7732028747925);
         println!("{out}");
@@ -46,6 +52,8 @@ fn bench(f: impl FnOnce()) {
 
     println!("=== complete. elapsed time: {:?} ===", end - start);
 }
+
+///// PARSING 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 #[repr(u8)]
 enum Cond {
@@ -88,8 +96,10 @@ impl Line<'_> {
         Line { text: Cow::from(text), count }
     }
 }
+/////
 
-type Cache<'k> = HashMap<SpringRecordKey<'k>, usize>;
+///// CACHE UTILITIES
+type Cache<'k> = FxHashMap<SpringRecordKey<'k>, usize>;
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 struct SpringRecordKey<'k> {
     blocks: BlockKey<'k>,
@@ -100,6 +110,7 @@ enum BlockKey<'k> {
     One(DamageBlock),
     Many(&'k [DamageBlock])
 }
+/////
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 struct DamageBlock {
