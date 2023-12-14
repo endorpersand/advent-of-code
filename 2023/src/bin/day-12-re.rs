@@ -102,36 +102,37 @@ type Cache = HashMap<SpringConfigB, usize>;
 struct DamageBlock {
     // The damage block exists in the least significant `size` bits of this buffer.
     // The line configuration starts from the LSB and moves to the MSB.
-    buffer: u128,
-    size: u8
+    //
+    // The most significant 8 bits are the size.
+    buffer: u128
 }
 impl DamageBlock {
     fn new(buffer: u128, size: u8) -> Self {
         // buffer: clear out unused bits to appease equality/hash
-        Self { buffer: buffer & ((1 << size) - 1), size }
+        Self { buffer: buffer & ((1 << size) - 1) | ((size as u128) << 120) }
     }
-    fn size(&self) -> usize {
-        self.size as usize
+    fn size(&self) -> u8 {
+        (self.buffer >> 120) as u8
     }
     fn fits(&self, cts: &[usize]) -> bool {
         let s: usize = cts.iter().sum();
 
         // if cts has less knowns than this block has, it cannot pass
         // if cts requires more space than exists in this block, then it also cannot pass
-        self.count_knowns() <= s && s + cts.len().saturating_sub(1) <= self.size()
+        self.count_knowns() <= s && (s + cts.len().saturating_sub(1)) as u8 <= self.size()
     }
     fn count_knowns(&self) -> usize {
-        self.buffer.count_ones() as usize
+        (self.buffer & ((1 << 120) - 1)).count_ones() as usize
     }
     fn take(&self, n: u8) -> Option<DamageBlock> {
-        match self.size.cmp(&n) {
+        match self.size().cmp(&n) {
             Ordering::Less    => None,
             Ordering::Equal   => Some(Self::new(0, 0)),
             Ordering::Greater => {
                 // nth item in buffer has to be 0 
                 // (since we're emulating taking an operational)
                 let buf = self.buffer >> n;
-                (buf & 1 == 0).then(|| Self::new(buf >> 1, self.size - n - 1))
+                (buf & 1 == 0).then(|| Self::new(buf >> 1, self.size() - n - 1))
             }
         }
     }
@@ -149,7 +150,7 @@ impl DamageBlock {
         if let Some(&pos) = cache.get(&cfg) { return pos; }
 
         // number of trailing ?s
-        let bl = (self.buffer.trailing_zeros() as u8).min(self.size);
+        let bl = (self.buffer.trailing_zeros() as u8).min(self.size());
 
         let pos = (0..=bl)
             .filter_map(|shift| self.take(shift + ct0 as u8))
