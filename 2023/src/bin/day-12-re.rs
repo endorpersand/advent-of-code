@@ -192,20 +192,14 @@ fn count_possible(blocks: &[DamageBlock], count: &[u8], cache: &mut Cache) -> us
     if count.is_empty() {
         return usize::from(blocks.iter().all(|b| b.count_knowns() == 0));
     }
-    if blocks.is_empty() {
-        // by check above, there are counts left,
-        // but no more blocks are left
-        return 0;
-    }
+
+    // for every n in 0..len(count), 
+    // include count[0..n] in first block, and count[n..] in remaining
+    let Some((b0, b_rest)) = blocks.split_first() else { return 0 };
 
     let cfg = SpringConfigB { blocks: blocks.to_vec(), count: count.to_vec() };
     if let Some(&pos) = cache.get(&cfg) { return pos; }
 
-    // for every n in 0..len(count), 
-    // include count[0..n] in first block, and count[n..] in remaining
-    let (b0, b_rest) = blocks.split_first()
-        .expect("block had at least 1 el");
-    
     let mut possibilities: usize = 0;
 
     for i in 0..=count.len() {
