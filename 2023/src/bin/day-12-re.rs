@@ -1,17 +1,18 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::num::NonZeroUsize;
 
 fn main() {
     let txt = std::fs::read_to_string("inputs/12.txt").unwrap();
     let State { springs } = parse(&txt);
 
-    let mut cache: Cache = Cache::new();
+    let mut cache = Cache::new();
 
     bench(|| {
         let out: usize = springs.iter()
             .cloned()
             .map(SpringConfigB::new)
-            .map(|spring| count_possibilities(&spring.blocks, &spring.count, &mut cache))
+            .map(|spring| count_possible(&spring.blocks, &spring.count, &mut cache))
             .sum();
         assert_eq!(out, 7379);
         println!("{out}");
@@ -22,11 +23,13 @@ fn main() {
             .cloned()
             .map(SpringConfig::convert_to_config_b)
             .map(SpringConfigB::new)
-            .map(|spring| count_possibilities(&spring.blocks, &spring.count, &mut cache))
+            .map(|spring| count_possible(&spring.blocks, &spring.count, &mut cache))
             .sum();
         assert_eq!(out, 7732028747925);
         println!("{out}");
     });
+
+    println!("{}", cache.len());
 }
 
 fn bench(f: impl FnOnce()) {
@@ -110,10 +113,7 @@ impl DamageBlock {
     fn size(&self) -> usize {
         self.size as usize
     }
-    fn fits(&self, ct: usize) -> bool {
-        ct <= self.size()
-    }
-    fn fits_n(&self, cts: &[usize]) -> bool {
+    fn fits(&self, cts: &[usize]) -> bool {
         cts.is_empty() || cts.iter().sum::<usize>() + cts.len() - 1 <= self.size()
     }
     fn count_knowns(&self) -> usize {
@@ -131,12 +131,12 @@ impl DamageBlock {
             }
         }
     }
-    fn count_possibilities(&self, cts: &[usize], cache: &mut Cache) -> usize {
+    fn count_possible(&self, cts: &[usize], cache: &mut Cache) -> usize {
         let Some((&ct0, ct_rest)) = cts.split_first() else {
             // if counts is empty,
             // there is one possibility if there are no knowns
             // and no possibilities if there are knowns
-                return usize::from(self.count_knowns() == 0);
+            return usize::from(self.count_knowns() == 0);
         };
 
         let cfg = SpringConfigB { blocks: vec![self.clone()], count: cts.to_vec() };
@@ -145,9 +145,10 @@ impl DamageBlock {
         // number of trailing ?s
         let bl = (self.buffer.trailing_zeros() as u8).min(self.size);
 
-        let pos = (0..=bl).map(|shift| DamageBlock::new(self.buffer >> shift, self.size - shift))
+        let pos = (0..=bl)
+            .map(|shift| DamageBlock::new(self.buffer >> shift, self.size - shift))
             .filter_map(|block| block.take(ct0 as u8))
-            .map(|block| block.count_possibilities(ct_rest, cache))
+            .map(|block| block.count_possible(ct_rest, cache))
             .sum::<usize>();
 
         cache.insert(cfg, pos);
@@ -181,7 +182,7 @@ impl SpringConfigB {
     }
 }
 
-fn count_possibilities(blocks: &[DamageBlock], count: &[usize], cache: &mut Cache) -> usize {
+fn count_possible(blocks: &[DamageBlock], count: &[usize], cache: &mut Cache) -> usize {
     if count.is_empty() {
         return usize::from(blocks.iter().all(|b| b.count_knowns() == 0));
     }
@@ -203,11 +204,12 @@ fn count_possibilities(blocks: &[DamageBlock], count: &[usize], cache: &mut Cach
 
     for i in 0..=count.len() {
         let (ct_left, ct_right) = count.split_at(i);
-        if !b0.fits_n(ct_left) { break; }
+        if !b0.fits(ct_left) { break; }
 
-        let first_pos = b0.count_possibilities(ct_left, cache);
-        let rest_pos = count_possibilities(b_rest, ct_right, cache);
-        possibilities += first_pos * rest_pos;
+        // short circuit optimization
+        let choice_pos = NonZeroUsize::new(b0.count_possible(ct_left, cache))
+            .map_or(0, |l| l.get() * count_possible(b_rest, ct_right, cache));
+        possibilities += choice_pos;
     }
 
     cache.insert(cfg, possibilities);
