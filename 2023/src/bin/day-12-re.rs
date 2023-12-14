@@ -1,17 +1,16 @@
+use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
 
 fn main() {
     let txt = std::fs::read_to_string("inputs/12.txt").unwrap();
-    let State { springs } = parse(&txt);
-
     let mut cache = Cache::new();
 
     bench(|| {
-        let out: usize = springs.iter()
-            .cloned()
-            .map(SpringConfigB::new)
+        let out: usize = txt.lines()
+            .map(Line::parse)
+            .map(SpringRecord::new)
             .map(|spring| count_possible(&spring.blocks, &spring.count, &mut cache))
             .sum();
         assert_eq!(out, 7379);
@@ -19,10 +18,10 @@ fn main() {
     });
 
     bench(|| {
-        let out: usize = springs.iter()
-            .cloned()
-            .map(SpringConfig::convert_to_config_b)
-            .map(SpringConfigB::new)
+        let out: usize = txt.lines()
+            .map(Line::parse)
+            .map(Line::convert_to_config_b)
+            .map(SpringRecord::new)
             .map(|spring| count_possible(&spring.blocks, &spring.count, &mut cache))
             .sum();
         assert_eq!(out, 7732028747925);
@@ -49,54 +48,43 @@ enum Cond {
     Damaged = b'#',
     Unknown = b'?',
 }
+
 #[derive(Clone, PartialEq, Eq, Debug)]
-struct SpringConfig {
-    text: Vec<Cond>,
+struct Line<'s> {
+    text: Cow<'s, [Cond]>,
     count: Vec<u8>
 }
-#[derive(Debug)]
-struct State {
-    springs: Vec<SpringConfig>,
-}
-fn parse(file: &str) -> State {
-    let springs = file.lines()
-        .map(|line| {
-            let (text_str, count_str) = line.split_once(' ').unwrap();
+impl Line<'_> {
+    fn parse(line: &str) -> Self {
+        let (text_str, count_str) = line.split_once(' ').unwrap();
+    
+        let text = Cow::Borrowed(unsafe {
+            std::mem::transmute::<&[u8], &[Cond]>(text_str.as_bytes())
+        });
+    
+        let count = count_str.split(',')
+            .map(|s| s.parse().unwrap())
+            .collect();
+    
+        Self { text, count }
+    }
 
-            let text = text_str.bytes()
-                .map(|b| match b {
-                    b'.' => Cond::Operational,
-                    b'#' => Cond::Damaged,
-                    b'?' => Cond::Unknown,
-                    _ => unreachable!()
-                })
-                .collect();
-
-            let count = count_str.split(',')
-                .map(|s| s.parse().unwrap())
-                .collect();
-
-            SpringConfig { text, count }
-        })
-        .collect();
-
-    State { springs }
-}
-
-impl SpringConfig {
-    fn convert_to_config_b(self) -> SpringConfig {
-        let Self { mut text, count } = self;
+    fn convert_to_config_b(self) -> Line<'static> {
+        let Self { text, count } = self;
+        
+        let mut text = text.into_owned();
         text.push(Cond::Unknown);
+        text.repeat(5);
         let mut text = text.repeat(5);
         text.pop();
-
+    
         let count = count.repeat(5);
-
-        Self { text, count }
+    
+        Line { text: Cow::from(text), count }
     }
 }
 
-type Cache = HashMap<SpringConfigB, usize>;
+type Cache = HashMap<SpringRecord, usize>;
 
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
 struct DamageBlock {
@@ -109,7 +97,7 @@ struct DamageBlock {
 impl DamageBlock {
     fn new(buffer: u128, size: u8) -> Self {
         // buffer: clear out unused bits to appease equality/hash
-        Self { buffer: buffer & ((1 << size) - 1) | ((size as u128) << 120) }
+        Self { buffer: buffer & ((1 << size) - 1) | (u128::from(size) << 120) }
     }
     fn size(&self) -> u8 {
         (self.buffer >> 120) as u8
@@ -146,7 +134,7 @@ impl DamageBlock {
             return usize::from(self.count_knowns() == 0);
         };
 
-        let cfg = SpringConfigB { blocks: vec![self.clone()], count: cts.to_vec() };
+        let cfg = SpringRecord { blocks: vec![self.clone()], count: cts.to_vec() };
         if let Some(&pos) = cache.get(&cfg) { return pos; }
 
         // number of trailing ?s
@@ -164,14 +152,14 @@ impl DamageBlock {
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
-struct SpringConfigB {
+struct SpringRecord {
     blocks: Vec<DamageBlock>,
     count: Vec<u8>
 }
 
-impl SpringConfigB {
-    fn new(cfg: SpringConfig) -> Self {
-        let SpringConfig { text, count } = cfg;
+impl SpringRecord {
+    fn new(cfg: Line<'_>) -> Self {
+        let Line { text, count } = cfg;
         
         let blocks = text.split(|&k| k == Cond::Operational)
             .filter(|s| !s.is_empty())
@@ -184,7 +172,7 @@ impl SpringConfigB {
             })
             .collect();
 
-        SpringConfigB { blocks, count }
+        SpringRecord { blocks, count }
     }
 }
 
@@ -197,7 +185,7 @@ fn count_possible(blocks: &[DamageBlock], count: &[u8], cache: &mut Cache) -> us
     // include count[0..n] in first block, and count[n..] in remaining
     let Some((b0, b_rest)) = blocks.split_first() else { return 0 };
 
-    let cfg = SpringConfigB { blocks: blocks.to_vec(), count: count.to_vec() };
+    let cfg = SpringRecord { blocks: blocks.to_vec(), count: count.to_vec() };
     if let Some(&pos) = cache.get(&cfg) { return pos; }
 
     let mut possibilities: usize = 0;
