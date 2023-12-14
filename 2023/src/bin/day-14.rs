@@ -54,15 +54,10 @@ impl Grid {
     }
     // calculates load, with leftmost being the max, rightmost being 1
     fn calc_load(&self) -> usize {
-        (0..self.size)
-            .flat_map(|c| {
-                self.buffer[(c * self.size)..((c + 1) * self.size)]
-                    .iter()
-                    .rev()
-                    .enumerate()
-                    .filter(|(_, &tile)| tile == b'O')
-                    .map(|(i, _)| i + 1)
-            })
+        self.buffer.iter()
+            .enumerate()
+            .filter(|(_, &tile)| tile == b'O')
+            .map(|(i, _)| self.size - (i % self.size))
             .sum()
     }
 
