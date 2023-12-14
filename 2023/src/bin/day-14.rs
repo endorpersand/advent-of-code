@@ -1,7 +1,7 @@
 fn main() {
     let txt = std::fs::read_to_string("inputs/14.txt").unwrap();
     let mut grid = parse(&txt);
-    grid.transpose();
+    grid.rotate_left();
 
     {
         // Part A
@@ -13,56 +13,50 @@ fn main() {
     {
         // Part B
         let mut grids = vec![grid.clone()];
-        let mut cycle_start = None;
-        for _ in 0..1_000_000_000 {
+        let start = loop {
             let mut g = grids.last().unwrap().clone();
             g.cycle();
-            if let Some(p) = grids.iter().rposition(|g1| g1 == &g) {
-                cycle_start.replace(p);
-                break;
-            }
-            grids.push(g);
-        }
 
-        let start = cycle_start.unwrap();
+            match grids.iter().rposition(|g1| g1 == &g) {
+                Some(s) => break s,
+                None    => grids.push(g),
+            }
+        };
+        
         let len = grids.len() - start;
         let sel = start + ((1_000_000_000 - start) % len);
         println!("{}", grids[sel].calc_load());
     }
 }
 
+// n x n grid
 #[derive(Clone, PartialEq, Eq)]
 struct Grid {
-    // column major
     buffer: Vec<u8>,
-    cols: usize
+    size: usize
 }
 fn parse(file: &str) -> Grid {
-    let cols = file.find('\n').unwrap();
+    let size = file.find('\n').unwrap();
     let buf = file.replace('\n', "");
 
-    Grid { buffer: buf.as_bytes().to_vec(), cols }
+    Grid { buffer: buf.as_bytes().to_vec(), size }
 }
 
 impl Grid {
-    fn rows(&self) -> usize {
-        self.buffer.len() / self.cols
-    }
-
+    // moves rocks so that they are at the leftmost in each row
     fn move_rocks(&mut self) {
-        let rows = self.rows();
-        for c in 0..self.cols {
-            let column = &mut self.buffer[(c * rows)..((c + 1) * rows)];
+        for c in 0..self.size {
+            let column = &mut self.buffer[(c * self.size)..((c + 1) * self.size)];
             for seg in column.split_mut(|&t| t == b'#') {
                 seg.sort_by_key(|&k| !k);
             }
         }
     }
+    // calculates load, with leftmost being the max, rightmost being 1
     fn calc_load(&self) -> usize {
-        let rows = self.rows();
-        (0..self.cols)
+        (0..self.size)
             .flat_map(|c| {
-                self.buffer[(c * rows)..((c + 1) * rows)]
+                self.buffer[(c * self.size)..((c + 1) * self.size)]
                     .iter()
                     .rev()
                     .enumerate()
@@ -73,33 +67,35 @@ impl Grid {
     }
 
     fn transpose(&mut self) {
-        self.buffer = (0..self.cols)
-            .flat_map(|i| self.buffer[i..].iter().copied().step_by(self.cols))
+        self.buffer = (0..self.size)
+            .flat_map(|i| self.buffer[i..].iter().copied().step_by(self.size))
             .collect();
     }
     fn flip_major(&mut self) {
-        let rows = self.rows();
-        for c in 0..self.cols {
-            self.buffer[(c * rows)..((c + 1) * rows)].reverse();
+        for c in 0..self.size {
+            self.buffer[(c * self.size)..((c + 1) * self.size)].reverse();
         }
     }
-    fn rotate(&mut self) {
+    fn rotate_left(&mut self) {
         self.flip_major();
         self.transpose();
+    }
+    fn rotate_right(&mut self) {
+        self.transpose();
+        self.flip_major();
     }
     fn cycle(&mut self) {
         for _ in 0..4 {
             self.move_rocks();
-            self.rotate();
+            self.rotate_right();
         }
     }
 
     #[allow(unused)]
     fn print(&self) {
         let buf = std::str::from_utf8(&self.buffer).unwrap();
-        let rows = self.rows();
-        for c in 0..self.cols {
-            println!("{}", &buf[(c * rows)..((c + 1) * rows)]);
+        for c in 0..self.size {
+            println!("{}", &buf[(c * self.size)..((c + 1) * self.size)]);
         }
         println!();
     }
