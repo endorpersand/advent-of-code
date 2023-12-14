@@ -39,7 +39,7 @@ fn parse(file: &str) -> Grid {
     let size = file.find('\n').unwrap();
     let buf = file.replace('\n', "");
 
-    Grid { buffer: buf.as_bytes().to_vec(), size }
+    Grid { buffer: buf.into_bytes(), size }
 }
 
 impl Grid {
