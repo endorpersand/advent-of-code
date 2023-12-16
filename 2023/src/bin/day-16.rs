@@ -1,8 +1,7 @@
-use std::collections::HashMap;
 use std::num::Wrapping;
 
 fn main() {
-    let txt = std::fs::read_to_string("inputs/16.txt").unwrap();
+    let txt = std::fs::read_to_string("inputs/16u.txt").unwrap();
     let grid = Grid::parse(&txt);
 
     // PART A
@@ -10,11 +9,9 @@ fn main() {
     println!("{out}");
 
     // PART B
-    let rows = grid.buffer.len() / grid.cols;
-
     let out = Iterator::chain(
-        (0..grid.cols).flat_map(|c| [(0, c, Dir::Down), (rows - 1, c, Dir::Up)]),
-        (0..rows).flat_map(|r| [(r, 0, Dir::Right), (r, grid.cols - 1, Dir::Left)])
+        (0..grid.cols).flat_map(|c| [(0, c, Dir::Down),  (grid.rows - 1, c, Dir::Up)]),
+        (0..grid.rows).flat_map(|r| [(r, 0, Dir::Right), (r, grid.cols - 1, Dir::Left)])
     )
         .map(|(r, c, d)| (r * grid.cols + c, d))
         .map(|(i, d)| State::new(&grid, i, d).compute())
@@ -24,17 +21,19 @@ fn main() {
 
 struct Grid {
     buffer: Vec<Tile>,
-    cols: usize
+    cols: usize,
+    rows: usize
 }
 impl Grid {
     fn parse(file: &str) -> Grid {
-        let buffer = file.bytes()
+        let buffer: Vec<_> = file.bytes()
             .filter(|&s| s != b'\n')
             .map(|b| unsafe { std::mem::transmute::<u8, Tile>(b) })
             .collect();
         let cols = file.find('\n').unwrap();
-    
-        Grid { buffer, cols }
+        let rows = buffer.len() / cols;
+
+        Grid { buffer, cols, rows }
     }
 
     fn shift_index(&self, i: usize, delta: Dir) -> Option<usize> {
@@ -46,8 +45,7 @@ impl Grid {
             Dir::Right => c += 1,
         }
 
-        let rows = self.buffer.len() / self.cols;
-        let r_in = (0..rows).contains(&r.0);
+        let r_in = (0..self.rows).contains(&r.0);
         let c_in = (0..self.cols).contains(&c.0);
 
         // This is not unnecessary because it prevents overflow.
@@ -84,14 +82,14 @@ impl Dir {
 }
 struct State<'s> {
     grid: &'s Grid,
-    energized: HashMap<usize, u8>, // hit locations
+    energized: Vec<u8>, // hit locations
     tails: Vec<(usize, Dir)> // beam pos, beam delta
 }
 impl<'s> State<'s> {
     fn new(grid: &'s Grid, tail_pos: usize, tail_dir: Dir) -> Self {
         Self {
             grid,
-            energized: Default::default(),
+            energized: vec![0; grid.buffer.len()],
             tails: vec![(tail_pos, tail_dir)],
         }
     }
@@ -103,7 +101,7 @@ impl<'s> State<'s> {
     }
     fn compute(&mut self) -> usize {
         while let Some((pos, delta)) = self.tails.pop() {
-            let entry = self.energized.entry(pos).or_default();
+            let entry = &mut self.energized[pos];
             if *entry & (1 << delta as u8) == 0 {
                 *entry |= 1 << delta as u8;
 
@@ -124,6 +122,8 @@ impl<'s> State<'s> {
             }
         }
 
-        self.energized.len()
+        self.energized.iter()
+            .filter(|&&i| i != 0)
+            .count()
     }
 }
