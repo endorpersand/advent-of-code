@@ -6,8 +6,7 @@ fn main() {
     let grid = Grid::parse(&txt);
 
     // PART A
-    let out = State::new(&grid, 0, Dir::Right)
-        .calc_energized();
+    let out = State::new(&grid, 0, Dir::Right).compute();
     println!("{out}");
 
     // PART B
@@ -18,7 +17,7 @@ fn main() {
         (0..rows).flat_map(|r| [(r, 0, Dir::Right), (r, grid.cols - 1, Dir::Left)])
     )
         .map(|(r, c, d)| (r * grid.cols + c, d))
-        .map(|(i, d)| State::new(&grid, i, d).calc_energized())
+        .map(|(i, d)| State::new(&grid, i, d).compute())
         .max();
     println!("{out:?}");
 }
@@ -77,10 +76,10 @@ enum Dir {
 }
 impl Dir {
     fn reflect_fwd(self) -> Self {
-        [Self::Right, Self::Up, Self::Left, Self::Down][self as usize]
+        unsafe { std::mem::transmute((self as u8) ^ 0b01) }
     }
     fn reflect_bwd(self) -> Self {
-        [Self::Left, Self::Down, Self::Right, Self::Up][self as usize]
+        unsafe { std::mem::transmute((self as u8) ^ 0b11) }
     }
 }
 struct State<'s> {
@@ -97,36 +96,34 @@ impl<'s> State<'s> {
         }
     }
 
-    fn iterate(&mut self) {
-        let tails = std::mem::take(&mut self.tails);
-        for (pos, delta) in tails {
+    fn advance_tail(&mut self, tail_pos: usize, tail_dir: Dir) {
+        if let Some(shifted_pos) = self.grid.shift_index(tail_pos, tail_dir) {
+            self.tails.push((shifted_pos, tail_dir));
+        }
+    }
+    fn compute(&mut self) -> usize {
+        while let Some((pos, delta)) = self.tails.pop() {
             let entry = self.energized.entry(pos).or_default();
             if *entry & (1 << delta as u8) == 0 {
                 *entry |= 1 << delta as u8;
 
-                let advances = match self.grid.buffer[pos] {
-                    Tile::FwdMirror  => vec![delta.reflect_fwd()],
-                    Tile::BwdMirror  => vec![delta.reflect_bwd()],
-                    Tile::VertSplit  if (delta as u8) % 2 == 0 => vec![delta],
-                    Tile::VertSplit  => vec![Dir::Up, Dir::Down],
-                    Tile::HorizSplit if (delta as u8) % 2 != 0 => vec![delta],
-                    Tile::HorizSplit => vec![Dir::Left, Dir::Right],
-                    Tile::None       => vec![delta],
-                };
-    
-                self.tails.extend({
-                    advances.into_iter()
-                        .map(|d| (d, self.grid.shift_index(pos, d)))
-                        .filter_map(|(d, msi)| Some((msi?, d)))
-                });
+                match self.grid.buffer[pos] {
+                    Tile::FwdMirror => self.advance_tail(pos, delta.reflect_fwd()),
+                    Tile::BwdMirror => self.advance_tail(pos, delta.reflect_bwd()),
+                    Tile::VertSplit if (delta as u8) % 2 != 0 => {
+                        self.advance_tail(pos, Dir::Up);
+                        self.advance_tail(pos, Dir::Down);
+                    },
+                    Tile::HorizSplit if (delta as u8) % 2 == 0 => {
+                        self.advance_tail(pos, Dir::Left);
+                        self.advance_tail(pos, Dir::Right);
+                    },
+                    _ => self.advance_tail(pos, delta),
+
+                }
             }
         }
-    }
 
-    fn calc_energized(mut self) -> usize {
-        while !self.tails.is_empty() {
-            self.iterate();
-        }
         self.energized.len()
     }
 }
