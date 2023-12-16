@@ -18,8 +18,8 @@ fn main() {
 
 struct Grid {
     buffer: Vec<Tile>,
-    cols: usize,
-    rows: usize
+    cols: u32,
+    rows: u32
 }
 impl Grid {
     fn parse(file: &str) -> Grid {
@@ -27,8 +27,8 @@ impl Grid {
             .filter(|&s| s != b'\n')
             .map(|b| unsafe { std::mem::transmute::<u8, Tile>(b) })
             .collect();
-        let cols = file.find('\n').unwrap();
-        let rows = buffer.len() / cols;
+        let cols = (file.find('\n').unwrap()) as u32;
+        let rows = buffer.len() as u32 / cols;
 
         Grid { buffer, cols, rows }
     }
@@ -61,7 +61,7 @@ impl Dir {
     }
 }
 
-type Coord = (usize, usize); // row col
+type Coord = (u32, u32); // row col
 struct State<'s> {
     grid: &'s Grid,
     energized: Vec<u8>, // hit locations
@@ -90,7 +90,7 @@ impl<'s> State<'s> {
     }
     fn compute(&mut self) -> usize {
         while let Some((pos @ (posr, posc), delta)) = self.tails.pop() {
-            let id = posr * self.grid.cols + posc;
+            let id = (posr * self.grid.cols + posc) as usize;
             let entry = &mut self.energized[id];
             if *entry & (1 << delta as u8) == 0 {
                 *entry |= 1 << delta as u8;
@@ -98,11 +98,11 @@ impl<'s> State<'s> {
                 match self.grid.buffer[id] {
                     Tile::FwdMirror => self.advance_tail(pos, delta.reflect_fwd()),
                     Tile::BwdMirror => self.advance_tail(pos, delta.reflect_bwd()),
-                    Tile::VertSplit if (delta as u8) % 2 != 0 => {
+                    Tile::VertSplit if (delta as u8) & 1 != 0 => {
                         self.advance_tail(pos, Dir::Up);
                         self.advance_tail(pos, Dir::Down);
                     },
-                    Tile::HorizSplit if (delta as u8) % 2 == 0 => {
+                    Tile::HorizSplit if (delta as u8) & 1 == 0 => {
                         self.advance_tail(pos, Dir::Left);
                         self.advance_tail(pos, Dir::Right);
                     },
