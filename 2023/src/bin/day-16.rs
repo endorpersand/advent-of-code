@@ -1,19 +1,16 @@
-use std::num::Wrapping;
-
 fn main() {
-    let txt = std::fs::read_to_string("inputs/16u.txt").unwrap();
+    let txt = std::fs::read_to_string("inputs/16uu.txt").unwrap();
     let grid = Grid::parse(&txt);
 
     // PART A
-    let out = State::new(&grid, 0, Dir::Right).compute();
+    let out = State::new(&grid, (0, 0), Dir::Right).compute();
     println!("{out}");
 
     // PART B
     let out = Iterator::chain(
-        (0..grid.cols).flat_map(|c| [(0, c, Dir::Down),  (grid.rows - 1, c, Dir::Up)]),
-        (0..grid.rows).flat_map(|r| [(r, 0, Dir::Right), (r, grid.cols - 1, Dir::Left)])
+        (0..grid.cols).flat_map(|c| [((0, c), Dir::Down),  ((grid.rows - 1, c), Dir::Up)]),
+        (0..grid.rows).flat_map(|r| [((r, 0), Dir::Right), ((r, grid.cols - 1), Dir::Left)])
     )
-        .map(|(r, c, d)| (r * grid.cols + c, d))
         .map(|(i, d)| State::new(&grid, i, d).compute())
         .max();
     println!("{out:?}");
@@ -34,23 +31,6 @@ impl Grid {
         let rows = buffer.len() / cols;
 
         Grid { buffer, cols, rows }
-    }
-
-    fn shift_index(&self, i: usize, delta: Dir) -> Option<usize> {
-        let (mut r, mut c) = (Wrapping(i / self.cols), Wrapping(i % self.cols));
-        match delta {
-            Dir::Up    => r -= 1,
-            Dir::Down  => r += 1,
-            Dir::Left  => c -= 1,
-            Dir::Right => c += 1,
-        }
-
-        let r_in = (0..self.rows).contains(&r.0);
-        let c_in = (0..self.cols).contains(&c.0);
-
-        // This is not unnecessary because it prevents overflow.
-        #[allow(clippy::unnecessary_lazy_evaluations)]
-        (r_in && c_in).then(|| r.0 * self.cols + c.0)
     }
 }
 
@@ -80,13 +60,15 @@ impl Dir {
         unsafe { std::mem::transmute((self as u8) ^ 0b11) }
     }
 }
+
+type Coord = (usize, usize); // row col
 struct State<'s> {
     grid: &'s Grid,
     energized: Vec<u8>, // hit locations
-    tails: Vec<(usize, Dir)> // beam pos, beam delta
+    tails: Vec<(Coord, Dir)> // beam pos, beam delta
 }
 impl<'s> State<'s> {
-    fn new(grid: &'s Grid, tail_pos: usize, tail_dir: Dir) -> Self {
+    fn new(grid: &'s Grid, tail_pos: Coord, tail_dir: Dir) -> Self {
         Self {
             grid,
             energized: vec![0; grid.buffer.len()],
@@ -94,18 +76,26 @@ impl<'s> State<'s> {
         }
     }
 
-    fn advance_tail(&mut self, tail_pos: usize, tail_dir: Dir) {
-        if let Some(shifted_pos) = self.grid.shift_index(tail_pos, tail_dir) {
-            self.tails.push((shifted_pos, tail_dir));
+    fn advance_tail(&mut self, (tr, tc): Coord, tail_dir: Dir) {
+        let (nr, nc) = match tail_dir {
+            Dir::Up    => (tr.wrapping_sub(1), tc),
+            Dir::Right => (tr, tc.wrapping_add(1)),
+            Dir::Down  => (tr.wrapping_add(1), tc),
+            Dir::Left  => (tr, tc.wrapping_sub(1)),
+        };
+
+        if (0..self.grid.rows).contains(&nr) && (0..self.grid.cols).contains(&nc) {
+            self.tails.push(((nr, nc), tail_dir));
         }
     }
     fn compute(&mut self) -> usize {
-        while let Some((pos, delta)) = self.tails.pop() {
-            let entry = &mut self.energized[pos];
+        while let Some((pos @ (posr, posc), delta)) = self.tails.pop() {
+            let id = posr * self.grid.cols + posc;
+            let entry = &mut self.energized[id];
             if *entry & (1 << delta as u8) == 0 {
                 *entry |= 1 << delta as u8;
 
-                match self.grid.buffer[pos] {
+                match self.grid.buffer[id] {
                     Tile::FwdMirror => self.advance_tail(pos, delta.reflect_fwd()),
                     Tile::BwdMirror => self.advance_tail(pos, delta.reflect_bwd()),
                     Tile::VertSplit if (delta as u8) % 2 != 0 => {
