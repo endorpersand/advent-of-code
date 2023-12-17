@@ -125,39 +125,25 @@ fn find_minimum<FEnd, FNext>(grid: &Grid, start: (usize, usize), mut end: FEnd, 
     where FEnd: FnMut(Step) -> bool,
           FNext: FnMut(&Grid, Step) -> Vec<Step>
 {
-
     let mut visited = HashMap::new();
-    let mut parents = HashMap::new();
-
     let mut frontier = BinaryHeap::new();
     frontier.push((Reverse(0), Step { index: start, forward_steps: 0, dir: Dir::Right }));
     frontier.push((Reverse(0), Step { index: start, forward_steps: 0, dir: Dir::Down  }));
 
     while let Some((Reverse(loss), step)) = frontier.pop() {
-        if end(step) {
-            // traversal!
-            let mut trav = vec![step];
-            while let Some(&parent) = parents.get(trav.last().unwrap()) {
-                trav.push(parent);
-            }
-            for t in trav.iter().rev() { println!("{t:?}") };
-            return loss;
-        };
-
+        if end(step) { return loss; }
         if visited.contains_key(&step) { continue; }
 
+        visited.insert(step, loss);
         frontier.extend({
             next(grid, step)
                 .into_iter()
                 .filter(|ns| !visited.contains_key(ns))
-                .inspect(|&ns| { parents.insert(ns, step); })
                 .map(|ns| {
                     let nl = loss + grid.index(ns.index) as usize;
                     (Reverse(nl), ns)
                 })
         });
-
-        visited.insert(step, loss);
     }
 
     panic!("should have found end");
