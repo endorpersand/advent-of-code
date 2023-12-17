@@ -1,19 +1,36 @@
 fn main() {
+
     let txt = std::fs::read_to_string("inputs/16uu.txt").unwrap();
     let grid = Grid::parse(&txt);
 
     // PART A
-    let out = State::new(&grid, (0, 0), Dir::Right).compute();
-    println!("{out}");
+    bench(|| {
+        let out = State::new(&grid, (0, 0), Dir::Right).compute();
+        println!("{out}");
+    });
 
     // PART B
-    let out = Iterator::chain(
-        (0..grid.cols).flat_map(|c| [((0, c), Dir::Down),  ((grid.rows - 1, c), Dir::Up)]),
-        (0..grid.rows).flat_map(|r| [((r, 0), Dir::Right), ((r, grid.cols - 1), Dir::Left)])
-    )
-        .map(|(i, d)| State::new(&grid, i, d).compute())
-        .max();
-    println!("{out:?}");
+    bench(|| {
+        let out = Iterator::chain(
+            (0..grid.cols).flat_map(|c| [((0, c), Dir::Down),  ((grid.rows - 1, c), Dir::Up)]),
+            (0..grid.rows).flat_map(|r| [((r, 0), Dir::Right), ((r, grid.cols - 1), Dir::Left)])
+        )
+            .map(|(i, d)| State::new(&grid, i, d).compute())
+            .max()
+            .unwrap();
+        println!("{out}");
+    });
+}
+
+fn bench(f: impl FnOnce()) {
+    use std::time::Instant;
+
+    println!("=== beginning computation ===");
+    let start = Instant::now();
+    f();
+    let end = Instant::now();
+
+    println!("=== complete. elapsed time: {:?} ===", end - start);
 }
 
 struct Grid {
