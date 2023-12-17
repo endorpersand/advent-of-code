@@ -1,22 +1,22 @@
-use std::fs;
 use std::ops::Add;
 
-use logos::Logos;
+use once_cell::sync::Lazy;
+use regex::Regex;
 
 fn main() {
     const LIMIT: CubeCounter = CubeCounter([12, 13, 14]);
-    let txt = fs::read_to_string("inputs/02.txt").unwrap();
+    let txt = std::fs::read_to_string("inputs/02.txt").unwrap();
 
     let out: usize = txt.lines()
         .zip(1..)
-        .filter(|(line, _)| count(line).into_iter().all(|c| c.accepted_by(LIMIT)))
+        .filter(|(line, _)| count_game(line).into_iter().all(|c| c.accepted_by(LIMIT)))
         .map(|(_, i)| i)
         .sum();
     println!("{out:?}");
     
     let out2: usize = txt.lines()
         .map(|line| {
-            let cts = count(line);
+            let cts = count_game(line);
             cts.into_iter().fold(CubeCounter::default(), CubeCounter::as_max)
         })
         .map(|CubeCounter([r, g, b])| r * g * b)
@@ -25,28 +25,32 @@ fn main() {
         
 }
 
-#[derive(Logos, Debug, Clone, Copy, PartialEq, Eq)]
-enum Cubes {
-    #[regex(r"\d+ red", |lx| lx.slice().strip_suffix(" red").unwrap().parse::<usize>().unwrap())]
-    Red(usize),
-    #[regex(r"\d+ green", |lx| lx.slice().strip_suffix(" green").unwrap().parse::<usize>().unwrap())]
-    Green(usize),
-    #[regex(r"\d+ blue", |lx| lx.slice().strip_suffix(" blue").unwrap().parse::<usize>().unwrap())]
-    Blue(usize),
-    #[token(";")]
-    Semi
+fn count_game(s: &str) -> Vec<CubeCounter> {
+    static RE: Lazy<Regex> = Lazy::new(|| {
+        Regex::new(r"(\d+) (red|green|blue)").unwrap()
+    });
+
+    let (_, rest) = s.split_once(": ").unwrap();
+    rest.split("; ")
+        .map(|s| {
+            let mut ctr = [0; 3];
+            for capture in RE.captures_iter(s) {
+                let ct: usize = capture[1].parse().unwrap();
+                let idx = match &capture[2] {
+                    "red" => 0,
+                    "green" => 1,
+                    "blue" => 2,
+                    _ => unreachable!()
+                };
+
+                ctr[idx] += ct;
+            }
+
+            CubeCounter(ctr)
+        })
+        .collect()
 }
 
-impl From<Cubes> for CubeCounter {
-    fn from(value: Cubes) -> Self {
-        Self(match value {
-            Cubes::Red(r) => [r, 0, 0],
-            Cubes::Green(g) => [0, g, 0],
-            Cubes::Blue(b) => [0, 0, b],
-            Cubes::Semi => panic!("can't")
-        })
-    }
-}
 #[derive(Debug, Default, Clone, Copy)]
 struct CubeCounter([usize; 3]);
 impl CubeCounter {
@@ -69,17 +73,4 @@ impl Add for CubeCounter {
         let CubeCounter([r1, g1, b1]) = rhs;
         CubeCounter([r0 + r1, g0 + g1, b0 + b1])
     }
-}
-fn count(s: &str) -> Vec<CubeCounter> {
-    let cubes = Cubes::lexer(s)
-        .filter_map(|t| t.ok())
-        .collect::<Vec<_>>();
-
-    cubes.split(|t| t == &Cubes::Semi)
-        .map(|sl| {
-            sl.iter().copied()
-                .map(CubeCounter::from)
-                .fold(Default::default(), |acc, cv| acc + cv)
-        })
-        .collect()
 }

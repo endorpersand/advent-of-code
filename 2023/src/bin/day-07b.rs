@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use logos::Logos;
-
 fn main() {
     let txt = std::fs::read_to_string("inputs/07.txt").unwrap();
 
@@ -15,34 +13,51 @@ fn main() {
     println!("{out}");
 }
 
-#[derive(Debug, Logos, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[repr(u8)]
+#[allow(dead_code)]
 enum Card {
-    #[token("J")]
-    J,
-    #[token("2")]
-    _2,
-    #[token("3")]
-    _3,
-    #[token("4")]
-    _4,
-    #[token("5")]
-    _5,
-    #[token("6")]
-    _6,
-    #[token("7")]
-    _7,
-    #[token("8")]
-    _8,
-    #[token("9")]
-    _9,
-    #[token("T")]
-    T,
-    #[token("Q")]
-    Q,
-    #[token("K")]
-    K,
-    #[token("A")]
-    A
+    J  = b'J',
+    _2 = b'2',
+    _3 = b'3',
+    _4 = b'4',
+    _5 = b'5',
+    _6 = b'6',
+    _7 = b'7',
+    _8 = b'8',
+    _9 = b'9',
+    T  = b'T',
+    Q  = b'Q',
+    K  = b'K',
+    A  = b'A',
+}
+impl PartialOrd for Card {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl Ord for Card {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        fn key(c: &Card) -> impl Ord {
+            match c {
+                Card::J  => 0,
+                Card::_2 => 1,
+                Card::_3 => 2,
+                Card::_4 => 3,
+                Card::_5 => 4,
+                Card::_6 => 5,
+                Card::_7 => 6,
+                Card::_8 => 7,
+                Card::_9 => 8,
+                Card::T  => 9,
+                Card::Q  => 10,
+                Card::K  => 11,
+                Card::A  => 12
+            }
+        }
+
+        key(self).cmp(&key(other))
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -71,8 +86,9 @@ enum HandType {
 }
 
 fn parse_hand(hand: &str) -> Hand {
-    let mut lx = Card::lexer(hand);
-    Hand(std::array::from_fn(|_| lx.next().unwrap().unwrap()))
+    Hand(<[_; 5]>::try_from(unsafe {
+        std::mem::transmute::<&[u8], &[Card]>(&hand.as_bytes()[..5])
+    }).unwrap())
 }
 impl Hand {
     fn count(self) -> HashMap<Card, usize> {
