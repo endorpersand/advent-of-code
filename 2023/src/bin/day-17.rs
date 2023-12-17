@@ -1,11 +1,14 @@
 use std::cmp::Reverse;
-use std::collections::{HashMap, BinaryHeap, HashSet};
+use std::collections::HashMap;
+
+use priority_queue::PriorityQueue;
 
 fn main() {
-    let txt = std::fs::read_to_string("inputs/17t.txt").unwrap();
+    let txt = std::fs::read_to_string("inputs/17.txt").unwrap();
     let grid = Grid::parse(&txt);
 
     println!("{}", find_minimum(&grid, (0, 0), (grid.rows - 1, grid.cols - 1)));
+    // println!("{}", find_minimum_b(&grid, (0, 0), (grid.rows - 1, grid.cols - 1)));
 }
 
 struct Grid {
@@ -30,9 +33,6 @@ impl Grid {
         (0..self.rows).contains(&r) && (0..self.cols).contains(&c)
     }
 
-    fn get(&self, (r, c): (usize, usize)) -> Option<u8> {
-        self.buffer.get(r * self.cols + c).copied()
-    }
     fn index(&self, (r, c): (usize, usize)) -> u8 {
         self.buffer[r * self.cols + c]
     }
@@ -67,49 +67,46 @@ struct Step {
     forward_steps: u8,
     dir: Dir
 }
-fn get_next_steps(grid: &Grid, step: Step) -> Vec<Step> {
-    let Step { index: (r, c), forward_steps, dir: curr_dir } = step;
-    
-    let mut steps = Vec::with_capacity(4);
 
-    let options = [
-        Some(curr_dir.rot_left()), 
-        Some(curr_dir.rot_right()), 
-        (forward_steps < 3).then_some(curr_dir)
-    ]
-        .into_iter()
-        .flatten();
-    for d in options {
-        let (dr, dc) = d.delta();
-        let index = (r.wrapping_add_signed(dr), c.wrapping_add_signed(dc));
-
-        if grid.in_bounds(index) {
-            steps.push(Step {
-                index,
-                forward_steps: if d == curr_dir { forward_steps + 1 } else { 1 },
-                dir: d
-            });
-        }
-    }
-    
-    steps
-}
 fn find_minimum(grid: &Grid, start: (usize, usize), end: (usize, usize)) -> usize {
+    fn next(grid: &Grid, step: Step) -> Vec<Step> {
+        let Step { index: (r, c), forward_steps, dir: curr_dir } = step;
+        
+        let mut steps = Vec::with_capacity(4);
+    
+        let options = [
+            Some(curr_dir.rot_left()), 
+            Some(curr_dir.rot_right()), 
+            (forward_steps < 3).then_some(curr_dir)
+        ]
+            .into_iter()
+            .flatten();
+        for d in options {
+            let (dr, dc) = d.delta();
+            let index = (r.wrapping_add_signed(dr), c.wrapping_add_signed(dc));
+    
+            if grid.in_bounds(index) {
+                steps.push(Step {
+                    index,
+                    forward_steps: if d == curr_dir { forward_steps + 1 } else { 1 },
+                    dir: d
+                });
+            }
+        }
+        
+        steps
+    }
+
     let mut visited = HashMap::new();
     let mut parents = HashMap::new();
 
     let start_step = Step { index: start, forward_steps: 0, dir: Dir::Right };
     visited.insert(start_step, 0);
     
-    let mut frontier = BinaryHeap::new();
-    frontier.extend({
-        get_next_steps(grid, start_step)
-            .into_iter()
-            .map(|ns| (Reverse(grid.index(ns.index) as usize), ns))
-    });
+    let mut frontier = PriorityQueue::new();
+    frontier.push(start_step, Reverse(0));
 
-    while let Some((Reverse(loss), step)) = frontier.pop() {
-        if visited.contains_key(&step) { println!("you hit {step:?} already"); };
+    while let Some((step, Reverse(loss))) = frontier.pop() {
         if step.index == end {
             // traversal!
             let mut trav = vec![step];
@@ -117,26 +114,21 @@ fn find_minimum(grid: &Grid, start: (usize, usize), end: (usize, usize)) -> usiz
                 trav.push(parent);
             }
             for t in trav.iter().rev() { println!("{t:?}") };
-
             return loss;
         };
 
-        frontier.extend({
-            get_next_steps(grid, step)
-                .into_iter()
-                .filter(|s| !visited.contains_key(s))
-                .inspect(|&ns| { parents.insert(ns, step); })
-                .map(|ns| (Reverse(loss + grid.index(ns.index) as usize), ns))
-        });
-        
-        // clean frontier
-        let mut in_frontier = HashSet::new();
-        frontier = std::mem::take(&mut frontier)
-            .into_sorted_vec()
-            .into_iter()
-            .rev()
-            .filter(|&(_, s)| in_frontier.insert(s))
-            .collect();
+        for ns in next(grid, step) {
+            if visited.contains_key(&ns) { continue; }
+            parents.insert(ns, step);
+
+            let nl = loss + grid.index(ns.index) as usize;
+
+            match frontier.get(&ns) {
+                Some((_, &Reverse(prio))) if nl < prio => { frontier.push(ns, Reverse(nl)); },
+                Some(_) => {},
+                None => { frontier.push(ns, Reverse(nl)); },
+            };
+        }
 
         visited.insert(step, loss);
     }
