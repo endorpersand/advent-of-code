@@ -1,7 +1,5 @@
 use std::cmp::Reverse;
-use std::collections::HashMap;
-
-use priority_queue::PriorityQueue;
+use std::collections::{HashMap, BinaryHeap};
 
 fn main() {
     let txt = std::fs::read_to_string("inputs/17.txt").unwrap();
@@ -131,11 +129,11 @@ fn find_minimum<FEnd, FNext>(grid: &Grid, start: (usize, usize), mut end: FEnd, 
     let mut visited = HashMap::new();
     let mut parents = HashMap::new();
 
-    let mut frontier = PriorityQueue::new();
-    frontier.push(Step { index: start, forward_steps: 0, dir: Dir::Right }, Reverse(0));
-    frontier.push(Step { index: start, forward_steps: 0, dir: Dir::Down  }, Reverse(0));
+    let mut frontier = BinaryHeap::new();
+    frontier.push((Reverse(0), Step { index: start, forward_steps: 0, dir: Dir::Right }));
+    frontier.push((Reverse(0), Step { index: start, forward_steps: 0, dir: Dir::Down  }));
 
-    while let Some((step, Reverse(loss))) = frontier.pop() {
+    while let Some((Reverse(loss), step)) = frontier.pop() {
         if end(step) {
             // traversal!
             let mut trav = vec![step];
@@ -146,18 +144,18 @@ fn find_minimum<FEnd, FNext>(grid: &Grid, start: (usize, usize), mut end: FEnd, 
             return loss;
         };
 
-        for ns in next(grid, step) {
-            if visited.contains_key(&ns) { continue; }
+        if visited.contains_key(&step) { continue; }
 
-            parents.insert(ns, step);
-            let nl = loss + grid.index(ns.index) as usize;
-
-            match frontier.get(&ns) {
-                Some((_, &Reverse(prio))) if nl < prio => { frontier.push(ns, Reverse(nl)); },
-                Some(_) => {},
-                None => { frontier.push(ns, Reverse(nl)); },
-            };
-        }
+        frontier.extend({
+            next(grid, step)
+                .into_iter()
+                .filter(|ns| !visited.contains_key(ns))
+                .inspect(|&ns| { parents.insert(ns, step); })
+                .map(|ns| {
+                    let nl = loss + grid.index(ns.index) as usize;
+                    (Reverse(nl), ns)
+                })
+        });
 
         visited.insert(step, loss);
     }
