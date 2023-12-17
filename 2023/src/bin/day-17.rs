@@ -8,7 +8,7 @@ fn main() {
     let grid = Grid::parse(&txt);
 
     println!("{}", find_minimum(&grid, (0, 0), (grid.rows - 1, grid.cols - 1)));
-    // println!("{}", find_minimum_b(&grid, (0, 0), (grid.rows - 1, grid.cols - 1)));
+    println!("{}", find_minimum_b(&grid, (0, 0), (grid.rows - 1, grid.cols - 1)));
 }
 
 struct Grid {
@@ -100,11 +100,9 @@ fn find_minimum(grid: &Grid, start: (usize, usize), end: (usize, usize)) -> usiz
     let mut visited = HashMap::new();
     let mut parents = HashMap::new();
 
-    let start_step = Step { index: start, forward_steps: 0, dir: Dir::Right };
-    visited.insert(start_step, 0);
-    
     let mut frontier = PriorityQueue::new();
-    frontier.push(start_step, Reverse(0));
+    frontier.push(Step { index: start, forward_steps: 0, dir: Dir::Right }, Reverse(0));
+    frontier.push(Step { index: start, forward_steps: 0, dir: Dir::Down  }, Reverse(0));
 
     while let Some((step, Reverse(loss))) = frontier.pop() {
         if step.index == end {
@@ -119,6 +117,74 @@ fn find_minimum(grid: &Grid, start: (usize, usize), end: (usize, usize)) -> usiz
 
         for ns in next(grid, step) {
             if visited.contains_key(&ns) { continue; }
+            parents.insert(ns, step);
+
+            let nl = loss + grid.index(ns.index) as usize;
+
+            match frontier.get(&ns) {
+                Some((_, &Reverse(prio))) if nl < prio => { frontier.push(ns, Reverse(nl)); },
+                Some(_) => {},
+                None => { frontier.push(ns, Reverse(nl)); },
+            };
+        }
+
+        visited.insert(step, loss);
+    }
+
+    println!("{visited:?}");
+    panic!("should have found {end:?}");
+}
+fn find_minimum_b(grid: &Grid, start: (usize, usize), end: (usize, usize)) -> usize {
+    fn next(grid: &Grid, step: Step) -> Vec<Step> {
+        let Step { index: (r, c), forward_steps, dir: curr_dir } = step;
+        
+        let mut steps = Vec::with_capacity(4);
+    
+        let options = [
+            (forward_steps >= 4).then_some(curr_dir.rot_left()),
+            (forward_steps >= 4).then_some(curr_dir.rot_right()),
+            (forward_steps < 10).then_some(curr_dir)
+        ]
+            .into_iter()
+            .flatten();
+        for d in options {
+            let (dr, dc) = d.delta();
+            let index = (r.wrapping_add_signed(dr), c.wrapping_add_signed(dc));
+    
+            if grid.in_bounds(index) {
+                steps.push(Step {
+                    index,
+                    forward_steps: if d == curr_dir { forward_steps + 1 } else { 1 },
+                    dir: d
+                });
+            }
+        }
+        
+        steps
+    }
+
+    let mut visited = HashMap::new();
+    let mut parents = HashMap::new();
+
+    let mut frontier = PriorityQueue::new();
+    frontier.push(Step { index: start, forward_steps: 0, dir: Dir::Right }, Reverse(0));
+    frontier.push(Step { index: start, forward_steps: 0, dir: Dir::Down  }, Reverse(0));
+
+    while let Some((step, Reverse(loss))) = frontier.pop() {
+        if step.forward_steps >= 4 && step.index == end {
+            // traversal!
+            let mut trav = vec![step];
+            while let Some(&parent) = parents.get(trav.last().unwrap()) {
+                trav.push(parent);
+            }
+            for t in trav.iter().rev() { println!("{t:?}") };
+            return loss;
+        };
+
+        for ns in next(grid, step) {
+            if visited.contains_key(&ns) { continue; }
+            if ns.index == end && ns.forward_steps <= 3 { continue; }
+
             parents.insert(ns, step);
 
             let nl = loss + grid.index(ns.index) as usize;
