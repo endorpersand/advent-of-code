@@ -5,8 +5,8 @@ fn main() {
     let txt = std::fs::read_to_string("inputs/18.txt").unwrap();
     let State { orders } = parse(&txt);
 
-    println!("{}", find_area_a(&orders));
-    println!("{}", find_area_b(&orders));
+    println!("{}", find_area_a(orders.iter().map(|o| o.0)));
+    println!("{}", find_area_b(orders.iter().map(|o| o.1)));
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -27,11 +27,11 @@ impl Dir {
 #[derive(Debug, Clone, Copy)]
 struct Order {
     dir: Dir,
-    ct: usize,
-    color: u32
+    ct: isize
 }
 struct State {
-    orders: Vec<Order>
+    // order and color
+    orders: Vec<(Order, u32)>
 }
 fn parse(file: &str) -> State {
     static RE: Lazy<Regex> = Lazy::new(|| {
@@ -51,24 +51,23 @@ fn parse(file: &str) -> State {
             };
             let ct = cap[2].parse().unwrap();
             let color = u32::from_str_radix(&cap[3], 16).unwrap();
-            Order {
-                dir, ct, color
-            }
+            (Order { dir, ct }, color)
         })
         .collect();
 
     State { orders }
 }
 
-fn find_area_a(orders: &[Order]) -> isize {
+fn find_area_a(orders: impl IntoIterator<Item=Order>) -> isize {
     let mut points = vec![(0, 0)];
-    for Order { dir, ct, color: _ } in orders {
-        let &(x, y) = points.last().unwrap();
-        let (mut dx, mut dy) = dir.shift();
-        dx *= *ct as isize;
-        dy *= *ct as isize;
+    let mut boundary_pts = 0;
 
-        points.push((x + dx, y + dy));
+    for Order { dir, ct } in orders {
+        let &(x, y) = points.last().unwrap();
+        let (dx, dy) = dir.shift();
+
+        points.push((x + dx * ct, y + dy * ct));
+        boundary_pts += ct;
     }
 
     // do shoelaces
@@ -78,25 +77,21 @@ fn find_area_a(orders: &[Order]) -> isize {
         .sum::<isize>()
         .abs();
 
-    // count boundary points:
-    let boundary_pts: isize = orders.iter().map(|Order { ct, .. }| *ct as isize).sum();
-
     // do picks to count number of lattice pts
-    // A = inner + outer / 2 - 1
-    // so inner = A - outer / 2 + 1
+    // A = inner + (outer / 2) - 1
+    // so inner = A - (outer / 2) + 1
     let inner_pts = doubled_area / 2 - boundary_pts / 2 + 1;
 
     inner_pts + boundary_pts
 }
-fn find_area_b(orders: &[Order]) -> isize {
-    let norders: Vec<_> = orders.iter()
-        .map(|Order { color, .. }| *color)
-        .map(|color| {
-            let (ct, d) = ((color >> 4) as usize, color & 3);
-            let dir = unsafe { std::mem::transmute::<u8, Dir>(d as u8) };
-            dbg!(Order { dir, ct, color })
-        })
-        .collect();
+fn find_area_b(colors: impl IntoIterator<Item=u32>) -> isize {
+    find_area_a({
+        colors.into_iter()
+            .map(|color| {
+                let (ct, d) = ((color >> 4) as isize, (color & 3) as u8);
+                let dir = unsafe { std::mem::transmute::<u8, Dir>(d) };
 
-    find_area_a(&norders)
+                Order { dir, ct }
+            })
+    })
 }
