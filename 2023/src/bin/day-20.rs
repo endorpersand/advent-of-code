@@ -2,17 +2,19 @@ use std::collections::{HashMap, VecDeque};
 
 fn main() {
     let txt = std::fs::read_to_string("inputs/20.txt").unwrap();
-    let state = State::parse(&txt);
+    let mut state = State::parse(&txt);
 
-    // let mut lows = 0;
-    // let mut highs = 0;
-    // for _ in 0..1 {
-    //     let [l, h] = state.push_button();
-    //     lows += l;
-    //     highs += h;
-    // }
-    // println!("{}", lows * highs);
+    // PART A
+    let mut lows = 0;
+    let mut highs = 0;
+    for _ in 0..1000 {
+        let [l, h] = state.push_button();
+        lows += l;
+        highs += h;
+    }
+    println!("{}", lows * highs);
 
+    // PART B
     println!("{}", state.part_b());
 }
 
@@ -44,7 +46,7 @@ impl<'s> State<'s> {
         for (&k, Pipe { dest, .. }) in pipes.iter() {
             for d in dest {
                 if let Some(state) = conj_pipes.get_mut(d) {
-                    state.insert(k, Pulse::Low);
+                    state.insert(k, Pulse::default());
                 }
             }
         }
@@ -91,8 +93,7 @@ enum Pulse {
 enum Module<'s> {
     Broadcaster,
     FlipFlop { state: bool },
-    Conjunction { state: HashMap<&'s str, Pulse> },
-    Debugger { state: Box<Module<'s>>, debug_info: (&'s str, Pulse) }
+    Conjunction { state: HashMap<&'s str, Pulse> }
 }
 impl<'s> Module<'s> {
     fn pulse(&mut self, pulse: Pulse, from: &'s str) -> Option<Pulse> {
@@ -115,14 +116,7 @@ impl<'s> Module<'s> {
                     true => Some(Pulse::Low),
                     false => Some(Pulse::High)
                 }
-            },
-            Module::Debugger { state, debug_info: (dmod, dpulse) } => {
-                let pulse = state.pulse(pulse, from);
-                if pulse == Some(*dpulse) {
-                    println!("{dmod} pulsed {dpulse:?}");
-                }
-                pulse
-            },
+            }
         }
     }
 }
@@ -133,24 +127,6 @@ struct Pipe<'s> {
 }
 
 // PART B
-impl<'s> Module<'s> {
-    fn clear(&mut self) {
-        match self {
-            Module::Broadcaster => {},
-            Module::FlipFlop { state } => { *state = false; },
-            Module::Conjunction { state } => {
-                state.values_mut()
-                    .map(std::mem::take)
-                    .for_each(|_| ())
-            },
-            Module::Debugger { state, .. } => { state.clear() },
-        }
-    }
-    fn add_debugger(&mut self, debug_info: (&'s str, Pulse)) {
-        let inner = std::mem::replace(self, Module::Broadcaster);
-        *self = Module::Debugger { state: Box::new(inner), debug_info };
-    }
-}
 impl<'s> State<'s> {
     fn part_b(&self) -> usize {
         // The way the input is constructed:
@@ -171,18 +147,15 @@ impl<'s> State<'s> {
         self.pipes["broadcaster"].dest.iter()
             .copied()
             .map(|entry| {
-                let mut current = Some(entry);
                 let mut bit = 1;
                 let mut data = 1;
                 
-                let &[n0, n1] = &*self.pipes[current.unwrap()].dest else {
-                    panic!("expected entry point {} to be pointing to two nodes", current.unwrap())
+                let &[n0, n1] = &*self.pipes[entry].dest else {
+                    panic!("expected entry point {entry} to be pointing to two nodes")
                 };
-                let central;
-                (central, current) = if matches!(self.pipes[n0].module, Module::Conjunction { .. }) {
-                    (n0, Some(n1))
-                } else {
-                    (n1, Some(n0))
+                let (central, mut current) = match matches!(self.pipes[n0].module, Module::Conjunction { .. }) {
+                    true => (n0, Some(n1)),
+                    false => (n1, Some(n0)),
                 };
                 while let Some(n) = current {
                     let dest = &self.pipes[n].dest;
