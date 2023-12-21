@@ -139,16 +139,16 @@ impl CachedSteps {
             true  => (outer_rings, inner_rings),
             false => (inner_rings, outer_rings),
         };
-        let lcorner = rad.max(1);
-        let scorner = if n > size * (rad.max(1) + 1) { rad.max(1) + 1 } else { 0 };
+        let lcorner = rad;
+        let scorner = rad + 1;
         let ledges = 1;
-        let sedges = usize::from(n > mid + size * (rad + 1));
+        let sedges = 1;
 
-        let lcorner_dist = n - size * rad.max(1);
-        let scorner_dist = if scorner > 0 { n - size * (rad.max(1) + 1) } else { 0 };
+        let lcorner_dist = n - size * rad;
+        let scorner_dist = n - size * (rad + 1);
         let ledge_dist   = n - mid - size * rad;
-        let sedge_dist   = if sedges > 0 { n - mid - size * (rad + 1) } else { 0 };
-        
+        let sedge_dist   = n.saturating_sub(mid + size * (rad + 1));
+
         {
               center  * self.center[self.center.len() - (1 << u8::from(center_is_odd))]
             + odds    * self.edges[self.edges.len() - 1]
