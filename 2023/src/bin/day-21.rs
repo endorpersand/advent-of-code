@@ -7,17 +7,10 @@ fn main() {
     let grid = Grid::parse(&txt);
 
     // PART A
-    // println!("{}", find_nei_steps(&grid, 64));
+    println!("{}", find_nei_steps(&grid, 64));
     
     // PART B
-    let grid2 = Grid2::parse(&txt);
     let steps = CachedSteps::generate(&grid);
-    // assert_eq!(steps.calculate_spots(&grid, 262), 62655);
-    // let mut map = find_nei_steps2(&grid2, 129);
-    // for i in 130..=700 {
-    //     println!("checking {i}");
-    //     assert_eq!(find_nei_steps2_next(&grid2, &mut map), steps.calculate_spots(&grid, i));
-    // }
     println!("{}", steps.calculate_spots(&grid, STEPS));
 }
 
@@ -54,11 +47,10 @@ fn find_nei_steps(g: &Grid, n: usize) -> usize {
     let mut frontier = HashSet::new();
     frontier.insert(start);
 
-    for i in 0..n {
+    for _ in 0..n {
         for tile in std::mem::take(&mut frontier) {
             frontier.extend(g.neighbors(tile).filter(|&i| g.buffer[i] != b'#'));
         }
-        // dbg!(i + 1, frontier.len());
     }
     
     frontier.len()
@@ -134,7 +126,6 @@ impl CachedSteps {
             return self.center[n] + self.edges[excess - 1];
         };
 
-
         let rad = (n / size) - 1;
         let center = 1;
         
@@ -158,7 +149,6 @@ impl CachedSteps {
         let ledge_dist   = n - mid - size * rad;
         let sedge_dist   = if sedges > 0 { n - mid - size * (rad + 1) } else { 0 };
         
-        // dbg!(n, center, rad, odds, evens, lcorner, scorner, ledges, sedges, lcorner_dist, scorner_dist, ledge_dist, sedge_dist);
         {
               center  * self.center[self.center.len() - (1 << u8::from(center_is_odd))]
             + odds    * self.edges[self.edges.len() - 1]
@@ -169,53 +159,4 @@ impl CachedSteps {
             + if sedge_dist   > 0 { sedges  * self.edges[sedge_dist - 1]     } else { 0 }
         }
     }
-}
-
-#[derive(Debug)]
-struct Grid2 {
-    buffer: Vec<u8>,
-    cols: usize,
-    rows: usize
-}
-impl Grid2 {
-    fn parse(file: &str) -> Self {
-        let buffer: Vec<_> = file.bytes()
-            .filter(|&b| b != b'\n')
-            .collect();
-        let cols = file.find('\n').unwrap();
-        let rows = buffer.len() / cols;
-
-        Self { buffer, cols, rows }
-    }
-
-    fn index(&self, (r, c): (isize, isize)) -> u8 {
-        let nr = r.rem_euclid(self.rows as isize) as usize;
-        let nc = c.rem_euclid(self.cols as isize) as usize;
-        self.buffer[nr * self.cols + nc]
-    }
-
-    fn neighbors(&self, (r, c): (isize, isize)) -> impl Iterator<Item=(isize, isize)> + '_ {
-        [(0, 1), (0, -1), (-1, 0), (1, 0)]
-            .into_iter()
-            .map(move |(dr, dc)| (r.wrapping_add(dr), c.wrapping_add(dc)))
-    }
-}
-
-fn find_nei_steps2(g: &Grid2, n: usize) -> HashSet<(isize, isize)> {
-    let start = g.buffer.iter()
-        .position(|&t| t == b'S')
-        .unwrap();
-    let mut frontier = HashSet::new();
-    frontier.insert(((start / g.cols) as isize, (start % g.cols) as isize));
-    
-    for _ in 0..n {
-        find_nei_steps2_next(g, &mut frontier);
-    }
-    frontier
-}
-fn find_nei_steps2_next(g: &Grid2, frontier: &mut HashSet<(isize, isize)>) -> usize {
-    for tile in std::mem::take(frontier) {
-        frontier.extend(g.neighbors(tile).filter(|&i| g.index(i) != b'#'));
-    }
-    frontier.len()
 }
