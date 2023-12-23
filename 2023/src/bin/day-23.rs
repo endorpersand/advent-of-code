@@ -1,5 +1,4 @@
-use std::cmp::Reverse;
-use std::collections::{HashMap, BinaryHeap, VecDeque};
+use std::collections::VecDeque;
 
 fn main() {
     let txt = std::fs::read_to_string("inputs/23.txt").unwrap();
@@ -36,28 +35,13 @@ impl Grid {
         self.buffer[r * self.cols + c]
     }
 
-    fn neighbors(&self, (r, c): (usize, usize)) -> impl Iterator<Item=(usize, usize)> {
-        let vec = match self.index((r, c)) {
-            b'>' => vec![Dir::Right],
-            b'v' => vec![Dir::Down],
-            b'<' => vec![Dir::Left],
-            b'^' => vec![Dir::Up],
-            _ => {
-                [Dir::Up, Dir::Right, Dir::Down, Dir::Left]
-                    .into_iter()
-                    .filter(|d| {
-                        let (dr, dc) = d.delta();
-                        let (nr, nc) = (r.wrapping_add_signed(dr), c.wrapping_add_signed(dc));
-                        self.in_bounds((nr, nc)) && self.index((nr, nc)) != b'#'
-                    })
-                    .collect()
-            }
-        };
-
-        vec.into_iter()
-            .map(move |d| {
+    fn neighbors(&self, (r, c): (usize, usize)) -> impl Iterator<Item=(usize, usize)> + '_ {
+        [Dir::Up, Dir::Right, Dir::Down, Dir::Left]
+            .into_iter()
+            .filter_map(move |d| {
                 let (dr, dc) = d.delta();
-                (r.wrapping_add_signed(dr), c.wrapping_add_signed(dc))
+                let (nr, nc) = (r.wrapping_add_signed(dr), c.wrapping_add_signed(dc));
+                (self.in_bounds((nr, nc)) && self.index((nr, nc)) != b'#').then_some((nr, nc))
             })
     }
 }
@@ -80,7 +64,7 @@ impl Dir {
 }
 
 fn find_max_path_len(grid: &Grid, start: (usize, usize), end: (usize, usize)) -> usize {
-    #[derive(Default, Clone)]
+    #[derive(Debug, Default, Clone)]
     struct Path {
         path: Vec<(usize, usize)>,
         reached_end: bool
@@ -89,21 +73,20 @@ fn find_max_path_len(grid: &Grid, start: (usize, usize), end: (usize, usize)) ->
     let mut paths = vec![Path::default()];
     let mut frontier = VecDeque::from_iter([(start, 0)]);
 
-    while let Some((tile, path_id)) = frontier.pop_front() {
+    while let Some((tile, path_id)) = frontier.pop_back() {
         if tile == end {
             paths[path_id].reached_end = true;
             continue;
         }
         
-        let mut nei_it = grid.neighbors(tile)
+        let neis: Vec<_> = grid.neighbors(tile)
             .filter(|n| !paths[path_id].path.contains(n))
-            .collect::<Vec<_>>()
-            .into_iter();
+            .collect::<Vec<_>>();
 
-        let Some(first_nei) = nei_it.next() else { continue };
+        let Some((&first_nei, rest_neis)) = neis.split_first() else { continue };
         
         // register new paths for everyone else first
-        for nei in nei_it {
+        for &nei in rest_neis {
             let new_path_id = paths.len();
             paths.push(paths[path_id].clone());
             frontier.push_back((nei, new_path_id));
@@ -116,6 +99,7 @@ fn find_max_path_len(grid: &Grid, start: (usize, usize), end: (usize, usize)) ->
     }
 
     paths.into_iter()
+        .filter(|p| p.reached_end)
         .map(|p| p.path.len())
         .max()
         .unwrap()
