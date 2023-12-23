@@ -5,9 +5,9 @@ fn main() {
     let txt = std::fs::read_to_string("inputs/23.txt").unwrap();
     let grid = Grid::parse(&txt);
 
-    let start = (0, grid.buffer[0..grid.cols].iter().position(|&b| b == b'.').unwrap());
-    let end = (grid.rows - 1, grid.buffer[(grid.rows - 1) * grid.cols..].iter().position(|&b| b == b'.').unwrap());
-    
+    let start = grid.buffer.iter().position(|&b| b == b'.').unwrap();
+    let end   = grid.buffer.iter().rposition(|&b| b == b'.').unwrap();
+
     // Part A
     println!("Part A");
     assert_eq!(2222, find_max_path_len(start, end, |t| { grid.neighbors_a(t).map(|t| (t, 1)) }));
@@ -19,74 +19,44 @@ fn main() {
 }
 
 #[derive(Debug)]
-struct Grid {
-    buffer: Vec<u8>,
-    cols: usize,
-    rows: usize
+struct Grid<'s> {
+    buffer: &'s [u8],
+    cols: usize
 }
-impl Grid {
-    fn parse(file: &str) -> Self {
-        let buffer: Vec<_> = file.bytes()
-            .filter(|&b| b != b'\n')
-            .collect();
+impl<'s> Grid<'s> {
+    fn parse(file: &'s str) -> Self {
+        let buffer = file.as_bytes();
+        let cols = file.find('\n').unwrap() + 1;
 
-        let cols = file.find('\n').unwrap();
-        let rows = buffer.len() / cols;
-
-        Self { buffer, cols, rows }
-    }
-
-    fn in_bounds(&self, (r, c): (usize, usize)) -> bool {
-        (0..self.rows).contains(&r) && (0..self.cols).contains(&c)
-    }
-
-    fn index(&self, (r, c): (usize, usize)) -> u8 {
-        self.buffer[r * self.cols + c]
+        Self { buffer, cols }
     }
 }
-
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
-#[allow(unused)]
-#[repr(u8)]
-enum Dir {
-    Up = 0, Right = 1, Down = 2, Left = 3
-}
-impl Dir {
-    fn delta(self) -> (isize, isize) {
-        match self {
-            Dir::Up    => (-1,  0),
-            Dir::Right => ( 0,  1),
-            Dir::Down  => ( 1,  0),
-            Dir::Left  => ( 0, -1),
-        }
-    }
-}
-
 
 fn find_max_path_len<I>(
-    start: (usize, usize), 
-    end: (usize, usize), 
-    mut neighbors: impl FnMut((usize, usize)) -> I
+    start: usize, 
+    end: usize, 
+    mut neighbors: impl FnMut(usize) -> I
 ) -> usize 
-    where I: Iterator<Item=((usize, usize), usize)>
+    where I: Iterator<Item=(usize, usize)>
 {
     fn path_inner<I>(
-        start: (usize, usize), 
-        end: (usize, usize), 
-        neighbors: &mut impl FnMut((usize, usize)) -> I,
-        visited: &mut HashSet<(usize, usize)>
+        start: usize, 
+        end: usize, 
+        neighbors: &mut impl FnMut(usize) -> I,
+        visited: &mut HashSet<usize>
     ) -> Option<usize> 
-        where I: Iterator<Item=((usize, usize), usize)>
+        where I: Iterator<Item=(usize, usize)>
     {
         if start != end {
             visited.insert(start);
     
-            let neis: Vec<_> = neighbors(start)
-                .filter(|(n, _)| !visited.contains(n))
-                .collect();
-    
-            let max = neis.into_iter()
-                .filter_map(|(n, d)| Some(d + path_inner(n, end, neighbors, visited)?))
+            let max = neighbors(start)
+                .filter_map(|(n, d)| {
+                    match visited.contains(&n) {
+                        false => Some(d + path_inner(n, end, neighbors, visited)?),
+                        true  => None,
+                    }
+                })
                 .max();
     
             visited.remove(&start);
@@ -102,52 +72,63 @@ fn find_max_path_len<I>(
 }
 
 // PART A
-impl Grid {
-    fn neighbors_a(&self, (r, c): (usize, usize)) -> impl Iterator<Item=(usize, usize)> {
-        let vec = match self.index((r, c)) {
-            b'>' => vec![Dir::Right],
-            b'v' => vec![Dir::Down],
-            b'<' => vec![Dir::Left],
-            b'^' => vec![Dir::Up],
-            _ => {
-                [Dir::Up, Dir::Right, Dir::Down, Dir::Left]
-                    .into_iter()
-                    .filter(|d| {
-                        let (dr, dc) = d.delta();
-                        let (nr, nc) = (r.wrapping_add_signed(dr), c.wrapping_add_signed(dc));
-                        self.in_bounds((nr, nc)) && self.index((nr, nc)) != b'#'
-                    })
-                    .collect()
-            }
-        };
+impl Grid<'_> {
+    fn neighbors_a(&self, id: usize) -> impl Iterator<Item=usize> + '_ {
+        let dirs = [
+            self.cols.wrapping_neg(),
+            1,
+            self.cols,
+            1usize.wrapping_neg()
+        ];
 
-        vec.into_iter()
-            .map(move |d| {
-                let (dr, dc) = d.delta();
-                (r.wrapping_add_signed(dr), c.wrapping_add_signed(dc))
+        let mut d = [0; 4];
+        match self.buffer[id] {
+            b'^' => d[0] = dirs[0],
+            b'>' => d[0] = dirs[1],
+            b'v' => d[0] = dirs[2],
+            b'<' => d[0] = dirs[3],
+            _    => d = dirs
+        }
+
+        d.into_iter()
+            .take_while(|&d| d != 0)
+            .filter_map(move |delta| {
+                let nid = id.wrapping_add(delta);
+
+                self.buffer.get(nid)
+                    .is_some_and(|b| !matches!(b, b'\n' | b'#'))
+                    .then_some(nid)
             })
     }
 }
 
 // PART B
-impl Grid {
-    fn neighbors_b(&self, (r, c): (usize, usize)) -> impl Iterator<Item=(usize, usize)> + '_ {
-        [Dir::Up, Dir::Right, Dir::Down, Dir::Left]
-            .into_iter()
-            .filter_map(move |d| {
-                let (dr, dc) = d.delta();
-                let (nr, nc) = (r.wrapping_add_signed(dr), c.wrapping_add_signed(dc));
-                (self.in_bounds((nr, nc)) && self.index((nr, nc)) != b'#').then_some((nr, nc))
+impl Grid<'_> {
+    fn neighbors_b(&self, id: usize) -> impl Iterator<Item=usize> + '_ {
+        let dirs = [
+            self.cols.wrapping_neg(),
+            1,
+            self.cols,
+            1usize.wrapping_neg()
+        ];
+        
+        dirs.into_iter()
+            .filter_map(move |delta| {
+                let nid = id.wrapping_add(delta);
+
+                self.buffer.get(nid)
+                    .is_some_and(|b| !matches!(b, b'\n' | b'#'))
+                    .then_some(nid)
             })
     }
 }
 
 #[derive(Debug)]
 struct ReducedGrid {
-    edges: HashMap<(usize, usize), HashMap<(usize, usize), usize>>
+    edges: HashMap<usize, HashMap<usize, usize>>
 }
 impl ReducedGrid {
-    fn from_grid(grid: &Grid, start: (usize, usize), end: (usize, usize)) -> Self {
+    fn from_grid(grid: &Grid, start: usize, end: usize) -> Self {
         let mut red_grid = ReducedGrid { edges: HashMap::new() };
         let mut frontier = VecDeque::from_iter([vec![start]]);
         while let Some(mut path) = frontier.pop_front() {
@@ -180,7 +161,7 @@ impl ReducedGrid {
 
         red_grid
     }
-    fn insert(&mut self, head: (usize, usize), tail: (usize, usize), v: usize) -> bool {
+    fn insert(&mut self, head: usize, tail: usize, v: usize) -> bool {
         let head_map = self.edges.entry(head).or_default();
         if let Entry::Vacant(e) = head_map.entry(tail) {
             e.insert(v);
@@ -195,7 +176,7 @@ impl ReducedGrid {
 
         false
     }
-    fn neighbors(&self, id: (usize, usize)) -> impl Iterator<Item=((usize, usize), usize)> + '_ {
+    fn neighbors(&self, id: usize) -> impl Iterator<Item=(usize, usize)> + '_ {
         self.edges.get(&id)
             .into_iter()
             .flatten()
