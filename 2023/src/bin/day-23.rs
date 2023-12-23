@@ -1,4 +1,5 @@
-use std::collections::VecDeque;
+use std::collections::hash_map::Entry;
+use std::collections::{VecDeque, HashMap};
 
 fn main() {
     let txt = std::fs::read_to_string("inputs/23.txt").unwrap();
@@ -64,9 +65,70 @@ impl Dir {
 }
 
 fn find_max_path_len(grid: &Grid, start: (usize, usize), end: (usize, usize)) -> usize {
+    #[derive(Debug)]
+    struct ReducedGrid {
+        edges: HashMap<(usize, usize), HashMap<(usize, usize), usize>>
+    }
+    impl ReducedGrid {
+        fn insert(&mut self, head: (usize, usize), tail: (usize, usize), v: usize) -> bool {
+            let head_map = self.edges.entry(head).or_default();
+            if let Entry::Vacant(e) = head_map.entry(tail) {
+                e.insert(v);
+
+                let tail_map = self.edges.entry(tail).or_default();
+                if let Entry::Vacant(e) = tail_map.entry(head) {
+                    e.insert(v);
+
+                    return true;
+                }
+            }
+
+            false
+        }
+        fn neighbors(&self, id: (usize, usize)) -> impl Iterator<Item=((usize, usize), usize)> + '_ {
+            self.edges.get(&id)
+                .into_iter()
+                .flatten()
+                .map(|(&k, &v)| (k, v))
+        }
+    }
+
+    let mut red_grid = ReducedGrid { edges: HashMap::new() };
+    let mut frontier = VecDeque::from_iter([vec![start]]);
+    while let Some(mut path) = frontier.pop_front() {
+        let head = path[0];
+        let &tail = path.last().unwrap();
+
+        let neis: Vec<_> = grid.neighbors(tail)
+            .filter(|n| !path.contains(n))
+            .collect();
+
+        match &*neis {
+            [] => continue,
+            &[next] if next == end => {
+                red_grid.insert(head, next, path.len());
+            },
+            &[next] => {
+                path.push(next);
+                frontier.push_back(path);
+            },
+            _ => {
+                if red_grid.insert(head, tail, path.len() - 1) {
+                    frontier.extend({
+                        neis.into_iter()
+                            .map(|n| vec![tail, n])
+                    });
+                }
+            }
+        }
+    }
+
+    println!("{red_grid:?}");
+
     #[derive(Debug, Default, Clone)]
     struct Path {
         path: Vec<(usize, usize)>,
+        dist: usize,
         reached_end: bool
     }
 
@@ -79,28 +141,30 @@ fn find_max_path_len(grid: &Grid, start: (usize, usize), end: (usize, usize)) ->
             continue;
         }
         
-        let neis: Vec<_> = grid.neighbors(tile)
-            .filter(|n| !paths[path_id].path.contains(n))
+        let neis: Vec<_> = red_grid.neighbors(tile)
+            .filter(|(n, _)| !paths[path_id].path.contains(n))
             .collect::<Vec<_>>();
 
-        let Some((&first_nei, rest_neis)) = neis.split_first() else { continue };
+        let Some((&(first_nei, first_dist), rest_neis)) = neis.split_first() else { continue };
         
         // register new paths for everyone else first
-        for &nei in rest_neis {
+        for &(nei, dist) in rest_neis {
             let new_path_id = paths.len();
             paths.push(paths[path_id].clone());
             frontier.push_back((nei, new_path_id));
             paths[new_path_id].path.push(nei);
+            paths[new_path_id].dist += dist;
         }
 
         // then go back to the original path
         frontier.push_back((first_nei, path_id));
         paths[path_id].path.push(first_nei);
+        paths[path_id].dist += first_dist;
     }
 
     paths.into_iter()
         .filter(|p| p.reached_end)
-        .map(|p| p.path.len())
+        .map(|p| p.dist)
         .max()
         .unwrap()
 }
