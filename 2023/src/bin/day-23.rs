@@ -7,7 +7,8 @@ fn main() {
 
     let start = (0, grid.buffer[0..grid.cols].iter().position(|&b| b == b'.').unwrap());
     let end = (grid.rows - 1, grid.buffer[(grid.rows - 1) * grid.cols..].iter().position(|&b| b == b'.').unwrap());
-    println!("{}", find_max_path_len(&grid, start, end))
+    println!("{}", find_max_path_len_a(&grid, start, end));
+    println!("{}", find_max_path_len_b(&grid, start, end));
 }
 
 #[derive(Debug)]
@@ -35,16 +36,6 @@ impl Grid {
     fn index(&self, (r, c): (usize, usize)) -> u8 {
         self.buffer[r * self.cols + c]
     }
-
-    fn neighbors(&self, (r, c): (usize, usize)) -> impl Iterator<Item=(usize, usize)> + '_ {
-        [Dir::Up, Dir::Right, Dir::Down, Dir::Left]
-            .into_iter()
-            .filter_map(move |d| {
-                let (dr, dc) = d.delta();
-                let (nr, nc) = (r.wrapping_add_signed(dr), c.wrapping_add_signed(dc));
-                (self.in_bounds((nr, nc)) && self.index((nr, nc)) != b'#').then_some((nr, nc))
-            })
-    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
@@ -64,7 +55,90 @@ impl Dir {
     }
 }
 
-fn find_max_path_len(grid: &Grid, start: (usize, usize), end: (usize, usize)) -> usize {
+// PART A
+impl Grid {
+    fn neighbors_a(&self, (r, c): (usize, usize)) -> impl Iterator<Item=(usize, usize)> {
+        let vec = match self.index((r, c)) {
+            b'>' => vec![Dir::Right],
+            b'v' => vec![Dir::Down],
+            b'<' => vec![Dir::Left],
+            b'^' => vec![Dir::Up],
+            _ => {
+                [Dir::Up, Dir::Right, Dir::Down, Dir::Left]
+                    .into_iter()
+                    .filter(|d| {
+                        let (dr, dc) = d.delta();
+                        let (nr, nc) = (r.wrapping_add_signed(dr), c.wrapping_add_signed(dc));
+                        self.in_bounds((nr, nc)) && self.index((nr, nc)) != b'#'
+                    })
+                    .collect()
+            }
+        };
+
+        vec.into_iter()
+            .map(move |d| {
+                let (dr, dc) = d.delta();
+                (r.wrapping_add_signed(dr), c.wrapping_add_signed(dc))
+            })
+    }
+}
+
+fn find_max_path_len_a(grid: &Grid, start: (usize, usize), end: (usize, usize)) -> usize {
+    #[derive(Default, Clone)]
+    struct Path {
+        path: Vec<(usize, usize)>,
+        reached_end: bool
+    }
+
+    let mut paths = vec![Path::default()];
+    let mut frontier = VecDeque::from_iter([(start, 0)]);
+
+    while let Some((tile, path_id)) = frontier.pop_front() {
+        if tile == end {
+            paths[path_id].reached_end = true;
+            continue;
+        }
+        
+        let mut nei_it = grid.neighbors_a(tile)
+            .filter(|n| !paths[path_id].path.contains(n))
+            .collect::<Vec<_>>()
+            .into_iter();
+
+        let Some(first_nei) = nei_it.next() else { continue };
+        
+        // register new paths for everyone else first
+        for nei in nei_it {
+            let new_path_id = paths.len();
+            paths.push(paths[path_id].clone());
+            frontier.push_back((nei, new_path_id));
+            paths[new_path_id].path.push(nei);
+        }
+
+        // then go back to the original path
+        frontier.push_back((first_nei, path_id));
+        paths[path_id].path.push(first_nei);
+    }
+
+    paths.into_iter()
+        .map(|p| p.path.len())
+        .max()
+        .unwrap()
+}
+
+// PART B
+impl Grid {
+    fn neighbors_b(&self, (r, c): (usize, usize)) -> impl Iterator<Item=(usize, usize)> + '_ {
+        [Dir::Up, Dir::Right, Dir::Down, Dir::Left]
+            .into_iter()
+            .filter_map(move |d| {
+                let (dr, dc) = d.delta();
+                let (nr, nc) = (r.wrapping_add_signed(dr), c.wrapping_add_signed(dc));
+                (self.in_bounds((nr, nc)) && self.index((nr, nc)) != b'#').then_some((nr, nc))
+            })
+    }
+}
+
+fn find_max_path_len_b(grid: &Grid, start: (usize, usize), end: (usize, usize)) -> usize {
     #[derive(Debug)]
     struct ReducedGrid {
         edges: HashMap<(usize, usize), HashMap<(usize, usize), usize>>
@@ -99,7 +173,7 @@ fn find_max_path_len(grid: &Grid, start: (usize, usize), end: (usize, usize)) ->
         let head = path[0];
         let &tail = path.last().unwrap();
 
-        let neis: Vec<_> = grid.neighbors(tail)
+        let neis: Vec<_> = grid.neighbors_b(tail)
             .filter(|n| !path.contains(n))
             .collect();
 
@@ -122,8 +196,6 @@ fn find_max_path_len(grid: &Grid, start: (usize, usize), end: (usize, usize)) ->
             }
         }
     }
-
-    println!("{red_grid:?}");
 
     #[derive(Debug, Default, Clone)]
     struct Path {
