@@ -1,5 +1,5 @@
 use std::collections::hash_map::Entry;
-use std::collections::{VecDeque, HashMap};
+use std::collections::{VecDeque, HashMap, HashSet};
 
 fn main() {
     let txt = std::fs::read_to_string("inputs/23.txt").unwrap();
@@ -9,11 +9,13 @@ fn main() {
     let end = (grid.rows - 1, grid.buffer[(grid.rows - 1) * grid.cols..].iter().position(|&b| b == b'.').unwrap());
     
     // Part A
-    println!("{}", find_max_path_len(start, end, |t| { grid.neighbors_a(t).map(|t| (t, 1)) }));
+    println!("Part A");
+    assert_eq!(2222, find_max_path_len(start, end, |t| { grid.neighbors_a(t).map(|t| (t, 1)) }));
     
     // Part B
+    println!("Part B");
     let rgrid = ReducedGrid::from_grid(&grid, start, end);
-    println!("{}", find_max_path_len(start, end, |t| { rgrid.neighbors(t) }));
+    assert_eq!(6590, find_max_path_len(start, end, |t| { rgrid.neighbors(t) }));
 }
 
 #[derive(Debug)]
@@ -60,50 +62,42 @@ impl Dir {
     }
 }
 
-fn find_max_path_len<I>(start: (usize, usize), end: (usize, usize), mut neighbors: impl FnMut((usize, usize)) -> I) -> usize 
+
+fn find_max_path_len<I>(
+    start: (usize, usize), 
+    end: (usize, usize), 
+    mut neighbors: impl FnMut((usize, usize)) -> I
+) -> usize 
     where I: Iterator<Item=((usize, usize), usize)>
 {
-    #[derive(Debug, Default, Clone)]
-    struct Path {
-        path: Vec<(usize, usize)>,
-        dist: usize,
-        reached_end: bool
+    fn path_inner<I>(
+        start: (usize, usize), 
+        end: (usize, usize), 
+        neighbors: &mut impl FnMut((usize, usize)) -> I,
+        visited: &mut HashSet<(usize, usize)>
+    ) -> Option<usize> 
+        where I: Iterator<Item=((usize, usize), usize)>
+    {
+        if start != end {
+            visited.insert(start);
+    
+            let neis: Vec<_> = neighbors(start)
+                .filter(|(n, _)| !visited.contains(n))
+                .collect();
+    
+            let max = neis.into_iter()
+                .filter_map(|(n, d)| Some(d + path_inner(n, end, neighbors, visited)?))
+                .max();
+    
+            visited.remove(&start);
+    
+            max
+        } else {
+            Some(0)
+        }
     }
 
-    let mut paths = vec![Path::default()];
-    let mut frontier = vec![(start, 0)];
-
-    while let Some((tile, path_id)) = frontier.pop() {
-        if tile == end {
-            paths[path_id].reached_end = true;
-            continue;
-        }
-        
-        let mut neis: Vec<_> = neighbors(tile)
-            .filter(|(n, _)| !paths[path_id].path.contains(n))
-            .collect::<Vec<_>>();
-
-        let Some((tail_nei, tail_dist)) = neis.pop() else { continue };
-        
-        // register new paths for everyone else first
-        for (nei, dist) in neis {
-            let new_path_id = paths.len();
-            paths.push(paths[path_id].clone());
-            frontier.push((nei, new_path_id));
-            paths[new_path_id].path.push(nei);
-            paths[new_path_id].dist += dist;
-        }
-
-        // then go back to the original path
-        frontier.push((tail_nei, path_id));
-        paths[path_id].path.push(tail_nei);
-        paths[path_id].dist += tail_dist;
-    }
-
-    paths.into_iter()
-        .filter(|p| p.reached_end)
-        .map(|p| p.dist)
-        .max()
+    path_inner(start, end, &mut neighbors, &mut HashSet::new())
         .unwrap()
 }
 
