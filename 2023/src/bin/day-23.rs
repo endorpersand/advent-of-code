@@ -32,6 +32,30 @@ impl<'s> Grid<'s> {
     }
 }
 
+struct BitSet {
+    bits: Vec<u64>
+}
+impl BitSet {
+    fn new() -> Self {
+        BitSet { bits: vec![] }
+    }
+    fn new_with_capacity(cap: usize) -> Self {
+        if cap != 0 {
+            BitSet { bits: vec![0; cap.next_multiple_of(64) >> 6] }
+        } else {
+            BitSet::new()
+        }
+    }
+    fn contains(&self, n: usize) -> bool {
+        (self.bits[n >> 6] & (1 << (n & 63))) != 0
+    }
+    fn set(&mut self, n: usize) {
+        self.bits[n >> 6] |= 1 << (n & 63)
+    }
+    fn clear(&mut self, n: usize) {
+        self.bits[n >> 6] &= !(1 << (n & 63))
+    }
+}
 fn find_max_path_len<I>(
     start: usize, 
     end: usize, 
@@ -43,23 +67,23 @@ fn find_max_path_len<I>(
         start: usize, 
         end: usize, 
         neighbors: &mut impl FnMut(usize) -> I,
-        visited: &mut HashSet<usize>
+        visited: &mut BitSet
     ) -> Option<usize> 
         where I: Iterator<Item=(usize, usize)>
     {
         if start != end {
-            visited.insert(start);
+            visited.set(start);
     
             let max = neighbors(start)
                 .filter_map(|(n, d)| {
-                    match visited.contains(&n) {
+                    match visited.contains(n) {
                         false => Some(d + path_inner(n, end, neighbors, visited)?),
                         true  => None,
                     }
                 })
                 .max();
     
-            visited.remove(&start);
+            visited.clear(start);
     
             max
         } else {
@@ -67,7 +91,7 @@ fn find_max_path_len<I>(
         }
     }
 
-    path_inner(start, end, &mut neighbors, &mut HashSet::new())
+    path_inner(start, end, &mut neighbors, &mut BitSet::new_with_capacity(end /* close enoughhh */))
         .unwrap()
 }
 
