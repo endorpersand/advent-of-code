@@ -6,10 +6,6 @@ const MAX: i128 = 400_000_000_000_000;
 // const MAX: i128 = 27;
 
 fn main() {
-    println!("{}", Rational::from(19));
-    println!("{}", Rational::new(-14, NonZeroI128::new(3).unwrap()));
-    println!("{}", Rational::from(19) + Rational::new(-14, NonZeroI128::new(3).unwrap()));
-
     let txt = std::fs::read_to_string("inputs/24.txt").unwrap();
     let State { stones } = parse(&txt);
 
