@@ -130,32 +130,38 @@ struct ReducedGrid {
 impl ReducedGrid {
     fn from_grid(grid: &Grid, start: usize, end: usize) -> Self {
         let mut red_grid = ReducedGrid { edges: HashMap::new() };
-        let mut frontier = VecDeque::from_iter([vec![start]]);
-        while let Some(mut path) = frontier.pop_front() {
-            let head = path[0];
-            let &tail = path.last().unwrap();
 
-            let neis: Vec<_> = grid.neighbors_b(tail)
-                .filter(|n| !path.contains(n))
+        let mut visited = HashSet::new();
+        let mut frontier = VecDeque::from_iter([(start, start, 0)]);
+
+        while let Some((head, mut tail, mut dist)) = frontier.pop_front() {
+            if tail == end {
+                red_grid.insert(head, tail, dist);
+                continue;
+            }
+
+            visited.clear();
+            visited.insert(head);
+
+            let mut neis: Vec<_> = grid.neighbors_b(tail)
+                .filter(|n| !visited.contains(n))
                 .collect();
+            
+            while let &[next] = &*neis {
+                visited.insert(tail);
+                tail = next;
+                dist += 1;
 
-            match &*neis {
-                [] => continue,
-                &[next] if next == end => {
-                    red_grid.insert(head, next, path.len());
-                },
-                &[next] => {
-                    path.push(next);
-                    frontier.push_back(path);
-                },
-                _ => {
-                    if red_grid.insert(head, tail, path.len() - 1) {
-                        frontier.extend({
-                            neis.into_iter()
-                                .map(|n| vec![tail, n])
-                        });
-                    }
-                }
+                neis = grid.neighbors_b(tail)
+                    .filter(|n| !visited.contains(n))
+                    .collect();
+            }
+
+            if red_grid.insert(head, tail, dist) {
+                frontier.extend({
+                    neis.into_iter()
+                        .map(|n| (tail, n, 1))
+                });
             }
         }
 
