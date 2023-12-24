@@ -39,7 +39,7 @@ fn main() {
         let s01i = s0s.intersect2d(s1s);
         let s02i = s0s.intersect2d(s2s);
         
-        if s01i.zip(s02i).is_some_and(|((_, p1), (_, p2))| (p1[0] - p2[0]).abs() < 0.01 && (p1[1] - p2[1]).abs() < 0.01) {
+        if s01i.zip(s02i).is_some_and(|((_, p1), (_, p2))| p1 == p2) {
             // println!("{rv2:?}:");
             
             // let ([t0, t1], p) = s01i.unwrap();
