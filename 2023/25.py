@@ -14,5 +14,7 @@ for line in text.splitlines():
         edges.add(tuple(sorted([name, conn])))
 
 G = nx.Graph(edges)
-[a, b] = nx.k_edge_components(G, 4) 
+cut_edges = nx.minimum_edge_cut(G)
+G.remove_edges_from(cut_edges)
+[a, b] = nx.connected_components(G)
 print(len(a) * len(b))
