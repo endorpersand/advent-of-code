@@ -1,13 +1,9 @@
-use std::sync::LazyLock;
-
-use regex::Regex;
-
-static PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(\d+)   (\d+)").unwrap());
 fn main() {
     let input = std::fs::read_to_string("inputs/01.txt").unwrap();
-    let (mut a, mut b): (Vec<_>, Vec<_>) = PATTERN.captures_iter(&input)
-        .map(|c| (c.get(1).unwrap().as_str().parse::<usize>().unwrap(), c.get(2).unwrap().as_str().parse::<usize>().unwrap()))
-        .unzip();
+    let (mut a, mut b): (Vec<_>, Vec<_>) = input.lines()
+        .map(|l| l.split_once("   ").unwrap())
+        .map(|(left, right)| (left.parse::<usize>().unwrap(), right.parse::<usize>().unwrap()))
+        .collect();
 
     soln1(&mut a, &mut b);
 }
