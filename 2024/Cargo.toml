@@ -1,0 +1,8 @@
+[package]
+name = "aoc-2024"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.83"
+
+[dependencies]
+regex = "1.11.1"
