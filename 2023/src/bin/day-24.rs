@@ -86,15 +86,15 @@ fn parse(file: &str) -> State {
             let (pos_str, vel_str) = line.split_once(" @ ").unwrap();
 
             let bpos = pos_str.split(", ")
-                .map(|s| s.trim().parse().unwrap())
+                .map(|s| s.trim().parse::<isize>().unwrap())
                 .collect::<Box<_>>();
             let bvel = vel_str.split(", ")
-                .map(|s| s.trim().parse().unwrap())
+                .map(|s| s.trim().parse::<isize>().unwrap())
                 .collect::<Box<_>>();
 
             Hailstone {
-                pos: *<Box<_>>::try_from(bpos).unwrap(),
-                vel: *<Box<_>>::try_from(bvel).unwrap(),
+                pos: *Box::try_from(bpos).unwrap(),
+                vel: *Box::try_from(bvel).unwrap(),
             }
         })
         .collect();

@@ -127,7 +127,7 @@ struct Pipe<'s> {
 }
 
 // PART B
-impl<'s> State<'s> {
+impl State<'_> {
     fn part_b(&self) -> usize {
         // The way the input is constructed:
         // There are binary counters (chains of `%`) that are connected to a `&`.
