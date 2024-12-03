@@ -4,7 +4,7 @@ use regex::Regex;
 
 fn main() {
     let input = std::fs::read_to_string("inputs/03.txt").unwrap();
-    soln2(&input);
+    soln3(&input);
 }
 
 #[allow(dead_code)]
@@ -75,5 +75,23 @@ fn soln2(input: &str) {
             Instruction::Do => (reduce, true),
             Instruction::Dont => (reduce, false),
         });
+    println!("{y}");
+}
+
+#[allow(dead_code)]
+fn soln3(input: &str) {
+    let regex = Regex::new(r"mul\((\d+),(\d+)\)").unwrap();
+    
+    let x = regex.captures_iter(input)
+        .map(|c| c[1].parse::<usize>().unwrap() * c[2].parse::<usize>().unwrap())
+        .sum::<usize>();
+    println!("{x}");
+
+    // Assumes "()" or "n't()" always follows "do" in string
+    let y = input.split("do")
+        .filter(|s| !s.starts_with("n't()"))
+        .flat_map(|s| regex.captures_iter(s))
+        .map(|c| c[1].parse::<usize>().unwrap() * c[2].parse::<usize>().unwrap())
+        .sum::<usize>();
     println!("{y}");
 }
