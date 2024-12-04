@@ -72,26 +72,24 @@ fn soln2(input: &str) {
     for (i, l) in input.lines().enumerate() {
         for (j, c) in l.bytes().enumerate() {
             match c {
-                b'X' => x.insert((i, j)),
-                b'M' => m.insert((i, j)),
-                b'A' => a.insert((i, j)),
-                b'S' => s.insert((i, j)),
+                b'X' => x.insert((i as isize, j as isize)),
+                b'M' => m.insert((i as isize, j as isize)),
+                b'A' => a.insert((i as isize, j as isize)),
+                b'S' => s.insert((i as isize, j as isize)),
                 _ => unreachable!(),
             };
         }
     }
 
     fn count_deltas<const N: usize>(
-        (i, j): (usize, usize), 
-        sets: [&HashSet<(usize, usize)>; N], 
+        (i, j): (isize, isize), 
+        sets: [&HashSet<(isize, isize)>; N], 
         deltas: &[[(isize, isize); N]]
     ) -> usize {
         deltas.iter()
             .filter(|&&group| {
-                std::iter::zip(sets, group).all(|(set, (di, dj))| {
-                    i.checked_add_signed(di).zip(j.checked_add_signed(dj)) // coord in bounds
-                        .is_some_and(|nc| set.contains(&nc)) // is in set
-                })
+                std::iter::zip(sets, group)
+                    .all(|(set, (di, dj))| set.contains(&(i + di, j + dj)))
             })
             .count()
     }
