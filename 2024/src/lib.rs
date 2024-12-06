@@ -8,24 +8,31 @@ const UP: Orientation = (-1, 0);
 fn rotate((dr, dc): Orientation) -> Orientation {
     (dc, -dr)
 }
-fn path_iter(grid: &[Vec<bool>], start: State) -> impl Iterator<Item = State> + '_ {
-    std::iter::successors(Some(start), |&((r, c), (dr, dc))| {
-        let (nr, nc) = r.checked_add_signed(dr).zip(c.checked_add_signed(dc))?;
-        let blocked = grid.get(nr).and_then(|r| r.get(nc))?;
 
-        match blocked {
-            true  => Some(((r, c), rotate((dr, dc)))),
-            false => Some(((nr, nc), (dr, dc))),
-        }
-    })
+struct Grid {
+    inner: Vec<Vec<bool>>
 }
-fn path_loops(grid: &[Vec<bool>], start: State) -> bool {
-    let mut frontier = HashSet::new();
-    path_iter(grid, start).any(|st| !frontier.insert(st))
+impl Grid {
+    fn path_iter(&self, start: State) -> impl Iterator<Item = State> + '_ {
+        std::iter::successors(Some(start), |&((r, c), (dr, dc))| {
+            let (nr, nc) = r.checked_add_signed(dr).zip(c.checked_add_signed(dc))?;
+            let blocked = self.inner.get(nr).and_then(|r| r.get(nc))?;
+        
+            match blocked {
+                true  => Some(((r, c), rotate((dr, dc)))),
+                false => Some(((nr, nc), (dr, dc))),
+            }
+        })
+    }
+
+    fn path_loops(&self, start: State) -> bool {
+        let mut frontier = HashSet::new();
+        self.path_iter(start).any(|st| !frontier.insert(st))
+    }
 }
 
 struct Data {
-    grid: Vec<Vec<bool>>,
+    grid: Grid,
     start: State
 }
 fn parse(input: &str) -> Data {
@@ -39,12 +46,12 @@ fn parse(input: &str) -> Data {
             Some(((i, j), UP))
         }).unwrap();
 
-    Data { grid, start }
+    Data { grid: Grid { inner: grid }, start }
 }
 pub fn d6p1(input: &str) -> usize {
     let Data { grid, start } = parse(input);
     
-    let visited: HashSet<_> = path_iter(&grid, start)
+    let visited: HashSet<_> = grid.path_iter(start)
         .map(|(p, _)| p)
         .collect();
     
@@ -53,16 +60,16 @@ pub fn d6p1(input: &str) -> usize {
 pub fn d6p2(input: &str) -> usize {
     let Data { mut grid, start } = parse(input);
     
-    let visited: HashSet<_> = path_iter(&grid, start)
+    let visited: HashSet<_> = grid.path_iter(start)
         .map(|(p, _)| p)
         .collect();
 
     visited.into_iter()
         .filter(|&(r, c)| {
             // Filter to only the tiles that would lead to a loop
-            grid[r][c] = true;
-            let result = path_loops(&grid, start);
-            grid[r][c] = false;
+            grid.inner[r][c] = true;
+            let result = grid.path_loops(start);
+            grid.inner[r][c] = false;
             result
         })
         .count()
