@@ -6,3 +6,10 @@ rust-version = "1.83"
 
 [dependencies]
 regex = "1.11.1"
+
+[dev-dependencies]
+criterion = "0.5.1"
+
+[[bench]]
+name = "benchmarks"
+harness = false
