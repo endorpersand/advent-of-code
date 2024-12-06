@@ -67,3 +67,15 @@ pub fn d6p2(input: &str) -> usize {
         })
         .count()
 }
+
+#[cfg(test)]
+mod test {
+    use crate::{d6p1, d6p2};
+
+    #[test]
+    fn d6_correct() {
+        let input = std::fs::read_to_string("inputs/06.txt").unwrap();
+        assert_eq!(d6p1(&input), 4454);
+        assert_eq!(d6p2(&input), 1503);
+    }
+}
