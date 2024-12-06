@@ -19,6 +19,10 @@ fn path_iter(grid: &[Vec<bool>], start: State) -> impl Iterator<Item = State> + 
         }
     })
 }
+fn path_loops(grid: &[Vec<bool>], start: State) -> bool {
+    let mut frontier = HashSet::new();
+    path_iter(grid, start).any(|st| !frontier.insert(st))
+}
 
 struct Data {
     grid: Vec<Vec<bool>>,
@@ -47,23 +51,19 @@ pub fn d6p1(input: &str) -> usize {
     visited.len()
 }
 pub fn d6p2(input: &str) -> usize {
-    let Data { grid, start } = parse(input);
+    let Data { mut grid, start } = parse(input);
     
     let visited: HashSet<_> = path_iter(&grid, start)
         .map(|(p, _)| p)
         .collect();
 
-    let mut grid2 = grid.clone();
-    let obs_ct = visited.into_iter()
+    visited.into_iter()
         .filter(|&(r, c)| {
             // Filter to only the tiles that would lead to a loop
-            grid2[r][c] = true;
-            let mut frontier = HashSet::new();
-            let result = path_iter(&grid2, start).any(|st| !frontier.insert(st));
-            grid2[r][c] = false;
+            grid[r][c] = true;
+            let result = path_loops(&grid, start);
+            grid[r][c] = false;
             result
         })
-        .count();
-
-    obs_ct
+        .count()
 }
