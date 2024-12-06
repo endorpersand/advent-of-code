@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use rustc_hash::FxHashSet;
 
 type Position = (usize, usize);
 type Orientation = (isize, isize);
@@ -9,14 +9,18 @@ fn rotate((dr, dc): Orientation) -> Orientation {
     (dc, -dr)
 }
 
+#[derive(Clone)]
 struct Grid {
     inner: Vec<Vec<bool>>
 }
 impl Grid {
+    fn get(&self, (r, c): Position) -> Option<bool> {
+        self.inner.get(r)?.get(c).copied()
+    }
     fn path_iter(&self, start: State) -> impl Iterator<Item = State> + '_ {
         std::iter::successors(Some(start), |&((r, c), (dr, dc))| {
             let (nr, nc) = r.checked_add_signed(dr).zip(c.checked_add_signed(dc))?;
-            let blocked = self.inner.get(nr).and_then(|r| r.get(nc))?;
+            let blocked = self.get((nr, nc))?;
         
             match blocked {
                 true  => Some(((r, c), rotate((dr, dc)))),
@@ -26,7 +30,7 @@ impl Grid {
     }
 
     fn path_loops(&self, start: State) -> bool {
-        let mut frontier = HashSet::new();
+        let mut frontier = FxHashSet::default();
         self.path_iter(start).any(|st| !frontier.insert(st))
     }
 }
@@ -50,29 +54,36 @@ fn parse(input: &str) -> Data {
 }
 pub fn d6p1(input: &str) -> usize {
     let Data { grid, start } = parse(input);
-    
-    let visited: HashSet<_> = grid.path_iter(start)
-        .map(|(p, _)| p)
-        .collect();
-    
-    visited.len()
-}
-pub fn d6p2(input: &str) -> usize {
-    let Data { mut grid, start } = parse(input);
-    
-    let visited: HashSet<_> = grid.path_iter(start)
+
+    let visited: FxHashSet<_> = grid.path_iter(start)
         .map(|(p, _)| p)
         .collect();
 
-    visited.into_iter()
-        .filter(|&(r, c)| {
-            // Filter to only the tiles that would lead to a loop
-            grid.inner[r][c] = true;
-            let result = grid.path_loops(start);
-            grid.inner[r][c] = false;
-            result
-        })
-        .count()
+    visited.len()
+}
+pub fn d6p2(input: &str) -> usize {
+    let Data { grid, start } = parse(input);
+    
+    let mut iter = grid.path_iter(start);
+    let mut visited = FxHashSet::default();
+    let mut current = iter.next().unwrap();
+    let mut counter = 0;
+    let mut grid2 = grid.clone();
+    // Iterate through visited array
+    // Every time the next square is empty, pretend it isn't and see what happens
+    for state @ ((nr, nc), _) in iter {
+        if visited.insert((nr, nc)) && !grid.inner[nr][nc] {
+            grid2.inner[nr][nc] = true;
+            let result = grid2.path_loops(current);
+            grid2.inner[nr][nc] = false;
+            if result {
+                counter += 1;
+            }
+        }
+        current = state;
+    }
+    
+    counter
 }
 
 #[cfg(test)]
