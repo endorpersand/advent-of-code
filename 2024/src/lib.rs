@@ -37,16 +37,16 @@ fn parse(input: &str) -> Data {
 
     Data { grid, start }
 }
-pub fn d6p1(input: &str) {
+pub fn d6p1(input: &str) -> usize {
     let Data { grid, start } = parse(input);
     
     let visited: HashSet<_> = path_iter(&grid, start)
         .map(|(p, _)| p)
         .collect();
-    let p1 = visited.len();
-    println!("{p1}");
+    
+    visited.len()
 }
-pub fn d6p2(input: &str) {
+pub fn d6p2(input: &str) -> usize {
     let Data { grid, start } = parse(input);
     
     let visited: HashSet<_> = path_iter(&grid, start)
@@ -65,6 +65,5 @@ pub fn d6p2(input: &str) {
         })
         .count();
 
-    let p2 = obs_ct;
-    println!("{p2}");
+    obs_ct
 }
