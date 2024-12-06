@@ -9,9 +9,10 @@ fn rotate((dr, dc): Orientation) -> Orientation {
     (dc, -dr)
 }
 
+const N: usize = 130;
 #[derive(Clone)]
 struct Grid {
-    inner: Vec<Vec<bool>>
+    inner: Vec<[bool; N]>
 }
 impl Grid {
     fn get(&self, (r, c): Position) -> Option<bool> {
@@ -41,7 +42,10 @@ struct Data {
 }
 fn parse(input: &str) -> Data {
     let grid = input.lines()
-        .map(|s| s.bytes().map(|b| b == b'#').collect())
+        .map(|s| {
+            let data: Vec<bool> = s.bytes().map(|b| b == b'#').collect();
+            *Box::<[bool; N]>::try_from(data).unwrap()
+        })
         .collect();
     let start = input.lines()
         .enumerate()
