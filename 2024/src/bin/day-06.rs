@@ -7,58 +7,49 @@ fn main() {
 
 #[allow(dead_code)]
 fn soln1(input: &str) {
-    const UP: (isize, isize) = (-1, 0);
-    fn rotate((dr, dc): (isize, isize)) -> (isize, isize) {
+    type Position = (usize, usize);
+    type Orientation = (isize, isize);
+    type State = (Position, Orientation);
+
+    const UP: Orientation = (-1, 0);
+    fn rotate((dr, dc): Orientation) -> Orientation {
         (dc, -dr)
     }
-    fn guard_path(grid: &[Vec<bool>], mut guard: Option<((usize, usize), (isize, isize))>) -> impl Iterator<Item = ((usize, usize), (isize, isize))> + '_ {
-        std::iter::from_fn(move || {
-            let state @ ((r, c), (dr, dc)) = guard.take()?;
+    fn path_iter(grid: &[Vec<bool>], start: State) -> impl Iterator<Item = State> + '_ {
+        std::iter::successors(Some(start), |&((r, c), (dr, dc))| {
+            let (nr, nc) = r.checked_add_signed(dr).zip(c.checked_add_signed(dc))?;
+            let blocked = grid.get(nr).and_then(|r| r.get(nc))?;
 
-            'inner: {
-                let Some((nr, nc)) = r.checked_add_signed(dr).zip(c.checked_add_signed(dc)) else { break 'inner };
-                let Some(blocked) = grid.get(nr).and_then(|r| r.get(nc)) else { break 'inner };
-                
-                guard.replace(match blocked {
-                    true  => ((r, c), rotate((dr, dc))),
-                    false => ((nr, nc), (dr, dc)),
-                });
+            match blocked {
+                true  => Some(((r, c), rotate((dr, dc)))),
+                false => Some(((nr, nc), (dr, dc))),
             }
-            Some(state)
         })
     }
+
     let grid: Vec<Vec<_>> = input.lines()
         .map(|s| s.bytes().map(|b| b == b'#').collect())
         .collect();
-    let m_guard = input.lines()
+    let start = input.lines()
         .enumerate()
         .find_map(|(i, line)| {
             let (j, _) = line.bytes().enumerate().find(|&(_, b)| b == b'^')?;
             Some(((i, j), UP))
-        });
-
-    let p1 = guard_path(&grid, m_guard)
+        }).unwrap();
+        
+    let visited: HashSet<_> = path_iter(&grid, start)
         .map(|(p, _)| p)
-        .collect::<HashSet<_>>()
-        .len();
+        .collect();
+    let p1 = visited.len();
     println!("{p1}");
 
     let mut grid2 = grid.clone();
-    let obs_ct = grid.iter().enumerate().flat_map(|(r, row)| {
-        row.iter().enumerate()
-            .filter_map(move |(c, col)| (!col).then_some((r, c)))
-    })
+    let obs_ct = visited.into_iter()
         .filter(|&(r, c)| {
+            // Filter to only the tiles that would lead to a loop
             grid2[r][c] = true;
-            let result = 'inner: {
-                let mut visited = HashSet::new();
-                for st in guard_path(&grid2, m_guard) {
-                    if !visited.insert(st) {
-                        break 'inner true;
-                    }
-                }
-                false
-            };
+            let mut frontier = HashSet::new();
+            let result = path_iter(&grid2, start).any(|st| !frontier.insert(st));
             grid2[r][c] = false;
             result
         })
