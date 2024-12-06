@@ -19,7 +19,8 @@ impl Grid {
     }
     fn path_iter(&self, start: State) -> impl Iterator<Item = State> + '_ {
         std::iter::successors(Some(start), |&((r, c), (dr, dc))| {
-            let (nr, nc) = r.checked_add_signed(dr).zip(c.checked_add_signed(dc))?;
+            let nr = r.wrapping_add_signed(dr);
+            let nc = c.wrapping_add_signed(dc);
             let blocked = self.get((nr, nc))?;
         
             match blocked {
@@ -29,8 +30,7 @@ impl Grid {
         })
     }
 
-    fn path_loops(&self, start: State) -> bool {
-        let mut frontier = FxHashSet::default();
+    fn path_loops(&self, start: State, frontier: &mut FxHashSet<State>) -> bool {
         self.path_iter(start).any(|st| !frontier.insert(st))
     }
 }
@@ -68,13 +68,16 @@ pub fn d6p2(input: &str) -> usize {
     let mut visited = FxHashSet::default();
     let mut current = iter.next().unwrap();
     let mut counter = 0;
+
     let mut grid2 = grid.clone();
+    let mut frontier = FxHashSet::default();
     // Iterate through visited array
     // Every time the next square is empty, pretend it isn't and see what happens
     for state @ ((nr, nc), _) in iter {
         if visited.insert((nr, nc)) && !grid.inner[nr][nc] {
             grid2.inner[nr][nc] = true;
-            let result = grid2.path_loops(current);
+            let result = grid2.path_loops(current, &mut frontier);
+            frontier.clear();
             grid2.inner[nr][nc] = false;
             if result {
                 counter += 1;
