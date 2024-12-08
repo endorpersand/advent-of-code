@@ -7,16 +7,15 @@ fn main() {
 }
 
 type Position = (usize, usize);
-fn compute_antinode((lr, lc): Position, (rr, rc): Position) -> Position {
-    (rr.wrapping_add(rr).wrapping_sub(lr), rc.wrapping_add(rc).wrapping_sub(lc))
+type PosDelta = (isize, isize);
+fn compute_delta((lr, lc): Position, (rr, rc): Position) -> PosDelta {
+    (rr.wrapping_sub(lr) as isize, rc.wrapping_sub(lc) as isize)
 }
-fn arithmetic((mut sr, mut sc): Position, (dr, dc): (isize, isize)) -> impl Iterator<Item = Position> {
-    std::iter::repeat_with(move || {
-        let (r, c) = (sr, sc);
-        sr = sr.wrapping_add_signed(dr);
-        sc = sc.wrapping_add_signed(dc);
-        (r, c)
-    })
+fn ray_sequence(start: Position, (dr, dc): PosDelta) -> impl Iterator<Item = Position> {
+    std::iter::successors(Some(start), move |&(sr, sc)| Some((sr.wrapping_add_signed(dr), sc.wrapping_add_signed(dc))))
+}
+fn in_grid((r, c): Position, n_rows: usize, n_cols: usize) -> bool {
+    (0..n_rows).contains(&r) && (0..n_cols).contains(&c)
 }
 #[allow(dead_code)]
 fn soln1(input: &str) {
@@ -45,8 +44,9 @@ fn soln1(input: &str) {
         for &c1 in coords {
             for &c2 in coords {
                 if c1 != c2 {
-                    let antinode @ (ar, ac) = compute_antinode(c1, c2);
-                    if (0..n_rows).contains(&ar) && (0..n_cols).contains(&ac) {
+                    let (dr, dc) = compute_delta(c1, c2);
+                    let antinode = (c2.0.wrapping_add_signed(dr), c2.1.wrapping_add_signed(dc));
+                    if in_grid(antinode, n_rows, n_cols) {
                         antinodes.insert(antinode);
                     }
                 }
@@ -60,14 +60,12 @@ fn soln1(input: &str) {
         for &c1 in coords {
             for &c2 in coords {
                 if c1 != c2 {
-                    let dr = c2.0.wrapping_sub(c1.0) as isize;
-                    let dc = c2.1.wrapping_sub(c1.1) as isize;
-                    arithmetic(c1, (dr, dc))
-                        .take_while(|(ar, ac)| (0..n_rows).contains(&ar) && (0..n_cols).contains(&ac))
-                        .for_each(|antinode| { antinodes.insert(antinode); });
-                    arithmetic(c1, (-dr, -dc))
-                        .take_while(|(ar, ac)| (0..n_rows).contains(&ar) && (0..n_cols).contains(&ac))
-                        .for_each(|antinode| { antinodes.insert(antinode); });
+                    let (dr, dc) = compute_delta(c1, c2);
+                    Iterator::chain(
+                        ray_sequence(c1, (dr, dc)).take_while(|&n| in_grid(n, n_rows, n_cols)),
+                        ray_sequence(c1, (-dr, -dc)).take_while(|&n| in_grid(n, n_rows, n_cols))
+                    )
+                        .for_each(|n| { antinodes.insert(n); });
                 }
             }
         }
