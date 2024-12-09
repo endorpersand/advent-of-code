@@ -1,43 +1,55 @@
 use std::collections::VecDeque;
 
-pub fn part1(input: &str) -> usize {
-    let mut iter = input.bytes().enumerate()
-        .flat_map(|(ind, d)| {
-            let (i, filled) = (ind / 2, ind % 2 == 0);
-            std::iter::repeat_n(filled.then_some(i), usize::from(d - b'0'))
-        });
-    
-    let mut accum = 0;
-    let mut index = 0;
-    'outer: while let Some(m_block) = iter.next() {
-        let bl = match m_block {
-            Some(bl) => bl,
-            None => loop {
-                match iter.next_back() {
-                    Some(Some(n)) => break n,
-                    Some(None) => continue,
-                    None => break 'outer,
-                }
-            },
-        };
-        
-        accum += index * bl;
-        index += 1;
-    }
-    
-    accum
-}
-
-pub fn part2(input: &str) -> usize {
-    let mut data = input.bytes().enumerate()
+fn parse(input: &str) -> VecDeque<(usize, Option<usize>)> {
+     input.bytes()
+        .enumerate()
         .map(|(ind, d)| {
             let (i, filled) = (ind / 2, ind % 2 == 0);
             (usize::from(d - b'0'), filled.then_some(i))
         })
-        .collect::<VecDeque<_>>();
+        .collect()
+}
 
+pub fn part1(input: &str) -> usize {
+    let mut data = parse(input);
     let mut accum = 0;
     let mut index = 0;
+
+    'outer: while let Some((mut size, m_block)) = data.pop_front() {
+        let bl = match m_block {
+            Some(bl) => bl,
+            None => {
+                let (end_size, end_bl) = loop {
+                    match data.pop_back() {
+                        Some((end_size, Some(end_bl))) => break (end_size, end_bl),
+                        Some((_, None)) => continue,
+                        None => break 'outer,
+                    }
+                };
+
+                match end_size.cmp(&size) {
+                    std::cmp::Ordering::Less => data.push_front((size - end_size, None)),
+                    std::cmp::Ordering::Equal => {},
+                    std::cmp::Ordering::Greater => data.push_back((end_size - size, Some(end_bl))),
+                }
+
+                size = end_size.min(size);
+                end_bl
+            }
+        };
+
+        accum += bl * size * (size + 2 * index - 1) / 2;
+        index += size;
+    }
+
+    accum
+}
+
+pub fn part2(input: &str) -> usize {
+    let mut data = parse(input);
+    let mut accum = 0;
+    let mut index = 0;
+
     while let Some((mut size, m_block)) = data.pop_front() {
         let bl = match m_block {
             Some(bl) => bl,
