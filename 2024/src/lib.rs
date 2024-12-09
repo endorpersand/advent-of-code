@@ -88,10 +88,8 @@ struct Data {
 }
 fn parse(input: &str) -> Data {
     let grid = input.lines()
-        .map(|s| {
-            let data: Vec<bool> = s.bytes().map(|b| b == b'#').collect();
-            *Box::<[bool; N]>::try_from(data).unwrap()
-        })
+        .map(|s| s.bytes().map(|b| b == b'#').collect::<Vec<_>>())
+        .flat_map(<[_; N]>::try_from)
         .collect();
     let start = input.lines()
         .enumerate()
