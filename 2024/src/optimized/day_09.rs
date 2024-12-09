@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 pub fn part1(input: &str) -> usize {
     let mut iter = input.bytes().enumerate()
         .flat_map(|(ind, d)| {
@@ -32,24 +34,37 @@ pub fn part2(input: &str) -> usize {
             let (i, filled) = (ind / 2, ind % 2 == 0);
             (usize::from(d - b'0'), filled.then_some(i))
         })
-        .collect::<Vec<_>>();
+        .collect::<VecDeque<_>>();
 
-    let mut i = 0;
-    while let Some(&(di_size, di_block)) = data.get(i) {
-        if di_block.is_none() {
-            if let Some(j) = data[i..].iter().rposition(|&(dj_size, dj_block)| dj_block.is_some() && dj_size <= di_size) {
-                let (dj_size, dj_block) = &mut data[i + j];
-                let new_data = [(*dj_size, dj_block.take()), (di_size - *dj_size, di_block)];
-                data.splice(i..=i, new_data);
+    let mut accum = 0;
+    let mut index = 0;
+    while let Some((mut size, m_block)) = data.pop_front() {
+        let bl = match m_block {
+            Some(bl) => bl,
+            None => {
+                while let Some((_, None)) = data.back() {
+                    data.pop_back();
+                }
+                match data.iter_mut().rfind(|(size2, block2)| block2.is_some() && *size2 <= size) {
+                    Some((size2, block2)) if size == *size2 => block2.take().unwrap_or(0),
+                    Some((size2, block2)) => {
+                        let (size2, block2) = (*size2, block2.take());
+                        // allow blocks that haven't been allocated to be used
+                        data.push_front((size - size2, None));
+                        size = size2;
+                        //
+                        block2.unwrap_or(0)
+                    }
+                    _ => 0,
+                }
             }
-        }
+        };
 
-        i += 1;
+        accum += bl * size * (size + 2 * index - 1) / 2;
+        index += size;
     }
 
-    data.into_iter()
-        .fold((0, 0), |(sum, i), (size, block)| (sum + block.unwrap_or(0) * size * (size + 2 * i - 1) / 2, i + size))
-        .0
+    accum
 }
 
 #[cfg(test)]
