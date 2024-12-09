@@ -1,75 +1,55 @@
 pub fn part1(input: &str) -> usize {
-    let mut data: Vec<Option<usize>> = Vec::new();
-    for (i, chunk) in input.as_bytes().chunks(2).enumerate() {
-        let n = usize::from(chunk[0] - b'0');
-        data.extend(std::iter::repeat_n(Some(i), n));
+    let mut iter = input.bytes().enumerate()
+        .flat_map(|(ind, d)| {
+            let (i, filled) = (ind / 2, ind % 2 == 0);
+            std::iter::repeat_n(filled.then_some(i), usize::from(d - b'0'))
+        });
     
-        if let Some(&bm) = chunk.get(1) {
-            let m = usize::from(bm - b'0');
-            data.extend(std::iter::repeat_n(None, m));
-        }
+    let mut accum = 0;
+    let mut index = 0;
+    'outer: while let Some(m_block) = iter.next() {
+        let bl = match m_block {
+            Some(bl) => bl,
+            None => loop {
+                match iter.next_back() {
+                    Some(Some(n)) => break n,
+                    Some(None) => continue,
+                    None => break 'outer,
+                }
+            },
+        };
+        
+        accum += index * bl;
+        index += 1;
     }
     
-    let mut i = 0;
-    let mut j = data.len() - 1;
-    
-    while i < j {
-        if data[i].is_some() {
-            i += 1;
-            continue;
-        }
-        if data[j].is_none() {
-            j -= 1;
-            continue;
-        }
-        data.swap(i, j);
-        i += 1;
-        j -= 1;
-    }
-    
-    data.into_iter()
-        .take_while(|s| s.is_some())
-        .flatten()
-        .enumerate()
-        .map(|(i, n)| i * n)
-        .sum()
+    accum
 }
 
 pub fn part2(input: &str) -> usize {
-    let mut data: Vec<(usize, Option<usize>)> = Vec::new();
-    for (i, chunk) in input.as_bytes().chunks(2).enumerate() {
-        let n = usize::from(chunk[0] - b'0');
-        data.push((n, Some(i)));
-
-        if let Some(&bm) = chunk.get(1) {
-            let m = usize::from(bm - b'0');
-            data.push((m, None));
-        }
-    }
+    let mut data = input.bytes().enumerate()
+        .map(|(ind, d)| {
+            let (i, filled) = (ind / 2, ind % 2 == 0);
+            (usize::from(d - b'0'), filled.then_some(i))
+        })
+        .collect::<Vec<_>>();
 
     let mut i = 0;
-
-    while i < data.len() {
-        let (di_size, di_block) = data[i];
-        if di_block.is_some() {
-            i += 1;
-            continue;
-        }
-
-        if let Some(j) = data[i..].iter().rposition(|&(dj_size, dj_block)| dj_block.is_some() && dj_size <= di_size) {
-            let (dj_size, _) = data[i + j];
-            data.splice(i..=i, [(dj_size, di_block), (di_size - dj_size, di_block)]);
-            data.swap(i, i + j + 1);
+    while let Some(&(di_size, di_block)) = data.get(i) {
+        if di_block.is_none() {
+            if let Some(j) = data[i..].iter().rposition(|&(dj_size, dj_block)| dj_block.is_some() && dj_size <= di_size) {
+                let (dj_size, dj_block) = &mut data[i + j];
+                let new_data = [(*dj_size, dj_block.take()), (di_size - *dj_size, di_block)];
+                data.splice(i..=i, new_data);
+            }
         }
 
         i += 1;
     }
 
     data.into_iter()
-        .flat_map(|(size, block)| std::iter::repeat_n(block, size))
-        .enumerate()
-        .filter_map(|(i, ms)| ms.map(|s| s * i))
-        .sum()
+        .fold((0, 0), |(sum, i), (size, block)| (sum + block.unwrap_or(0) * size * (size + 2 * i - 1) / 2, i + size))
+        .0
 }
 
 #[cfg(test)]
