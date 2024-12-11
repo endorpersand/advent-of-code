@@ -12,6 +12,11 @@ pub fn day_09(c: &mut Criterion) {
     c.bench_function("test d9p1", |b| b.iter(|| day_09::part1(&input)));
     c.bench_function("test d9p2", |b| b.iter(|| day_09::part2(&input)));
 }
+pub fn day_11(c: &mut Criterion) {
+    let input = std::fs::read_to_string("inputs/11.txt").unwrap();
+    c.bench_function("test d11p1", |b| b.iter(|| day_11::part1(&input)));
+    c.bench_function("test d11p2", |b| b.iter(|| day_11::part2(&input)));
+}
 
-criterion_group!(benches, day_06, day_09);
+criterion_group!(benches, day_06, day_09, day_11);
 criterion_main!(benches);
