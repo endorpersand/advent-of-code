@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 
 fn parse(input: &str) -> Vec<usize> {
     input.split_whitespace()
@@ -7,11 +7,11 @@ fn parse(input: &str) -> Vec<usize> {
         .unwrap()
 }
 fn exec(input: &[usize], iterations: usize) -> usize {
-    let mut ctr: HashMap<usize, usize> = input.iter()
+    let mut ctr: FxHashMap<usize, usize> = input.iter()
         .map(|&s| (s, 1))
         .collect();
 
-    fn insert(m: &mut HashMap<usize, usize>, keys: &[usize], n: usize) {
+    fn insert(m: &mut FxHashMap<usize, usize>, keys: &[usize], n: usize) {
         keys.iter().copied().for_each(|k| *m.entry(k).or_default() += n);
     }
     for _ in 0..iterations {
