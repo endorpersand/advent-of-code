@@ -3,8 +3,8 @@ use std::collections::{HashSet, VecDeque};
 type Position = (usize, usize);
 type PosDelta = (isize, isize);
 fn offset(grid: &[Vec<u8>], (r, c): Position, (dr, dc): PosDelta) -> Option<Position> {
-    let (nr, nc) = (r.wrapping_add_signed(dr), c.wrapping_add_signed(dc));
-    grid.get(nr)?.get(nc).map(|_| (nr, nc))
+    let np @ (nr, nc) = (r.wrapping_add_signed(dr), c.wrapping_add_signed(dc));
+    ((0..grid.len()).contains(&nr) && (0..grid[0].len()).contains(&nc)).then_some(np)
 }
 fn find_neighbors(grid: &[Vec<u8>], (r, c): Position) -> impl Iterator<Item=Position> + '_ {
     const DIRS: [PosDelta; 4] = [(0, 1), (0, -1), (1, 0), (-1, 0)];
@@ -14,9 +14,7 @@ fn find_neighbors(grid: &[Vec<u8>], (r, c): Position) -> impl Iterator<Item=Posi
 
 #[derive(Default, Debug)]
 struct Group {
-    value: char,
-    
-    points: Vec<Position>,
+    points: usize,
     // part 1
     inner_edges: usize,
     // part 2
@@ -24,33 +22,39 @@ struct Group {
 }
 impl Group {
     fn area(&self) -> usize {
-        self.points.len()
+        self.points
     }
     fn perimeter(&self) -> usize {
-        self.points.len() * 4 - self.inner_edges
+        self.points * 4 - self.inner_edges
     }
 }
 
-pub fn part1(input: &str) -> usize {
-    let grid: Vec<Vec<_>> = input.lines()
+// TODO: Make this contiguous
+fn parse(input: &str) -> Vec<Vec<u8>> {
+    input.lines()
         .map(|l| l.bytes().collect())
-        .collect();
+        .collect()
+
+}
+pub fn part1(input: &str) -> usize {
+    let grid = parse(input);
 
     let mut unexplored: Vec<_> = (0..grid.len())
         .flat_map(|r| (0..grid[0].len()).map(move |c| (r, c)))
         .rev()
         .collect();
     let mut visited = HashSet::new();
-    let mut groups = vec![];
+    let mut frontier = VecDeque::new();
+    let mut accum = 0;
 
     while let Some(start) = unexplored.pop() {
         visited.insert(start);
-        let mut frontier = VecDeque::from_iter([start]);
+        frontier.clear();
+        frontier.push_back(start);
         
         let mut group = Group::default();
         while let Some(p @ (r, c)) = frontier.pop_front() {
             let value = grid[r][c];
-            group.value = char::from(value);
             let mut inners = 0;
 
             // For each neighbor (which is in the group),
@@ -64,39 +68,36 @@ pub fn part1(input: &str) -> usize {
                     }
                 });
 
-            group.points.push(p);
+            group.points += 1;
             group.inner_edges += inners;
         }
 
-        groups.push(group);
+        accum += group.area() * group.perimeter();
         unexplored.retain(|p| !visited.contains(p));
     }
 
-    groups.iter()
-        .map(|g| g.area() * g.perimeter())
-        .sum()
+    accum
 }
 
 pub fn part2(input: &str) -> usize {
-    let grid: Vec<Vec<_>> = input.lines()
-        .map(|l| l.bytes().collect())
-        .collect();
+    let grid = parse(input);
 
     let mut unexplored: Vec<_> = (0..grid.len())
         .flat_map(|r| (0..grid[0].len()).map(move |c| (r, c)))
         .rev()
         .collect();
     let mut visited = HashSet::new();
-    let mut groups = vec![];
+    let mut frontier = VecDeque::new();
+    let mut accum = 0;
 
     while let Some(start) = unexplored.pop() {
         visited.insert(start);
-        let mut frontier = VecDeque::from_iter([start]);
+        frontier.clear();
+        frontier.push_back(start);
         
         let mut group = Group::default();
         while let Some(p @ (r, c)) = frontier.pop_front() {
             let value = grid[r][c];
-            group.value = char::from(value);
             let neighbors = [
                 (-1, -1), // UL
                 (-1,  0), // UC
@@ -109,7 +110,7 @@ pub fn part2(input: &str) -> usize {
             ].map(|delta| offset(&grid, p, delta).filter(|&(nr, nc)| grid[nr][nc] == value));
             let [ul, uc, ur, cl, cr, bl, bc, br] = neighbors;
 
-            group.points.push(p);
+            group.points += 1;
             if uc.is_some() == cl.is_some() && (uc.is_none() || ul.is_none()) { group.corners += 1 };
             if uc.is_some() == cr.is_some() && (uc.is_none() || ur.is_none()) { group.corners += 1 };
             if bc.is_some() == cl.is_some() && (bc.is_none() || bl.is_none()) { group.corners += 1 };
@@ -122,13 +123,11 @@ pub fn part2(input: &str) -> usize {
             });
         }
 
-        groups.push(group);
+        accum += group.area() * group.corners;
         unexplored.retain(|p| !visited.contains(p));
     }
 
-    groups.iter()
-        .map(|g| g.area() * g.corners)
-        .sum()
+    accum
 }
 
 #[cfg(test)]
