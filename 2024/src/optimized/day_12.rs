@@ -1,4 +1,4 @@
-use std::collections::{HashSet, VecDeque};
+use rustc_hash::FxHashSet;
 
 type Position = (usize, usize);
 type PosDelta = (isize, isize);
@@ -43,17 +43,17 @@ pub fn part1(input: &str) -> usize {
         .flat_map(|r| (0..grid[0].len()).map(move |c| (r, c)))
         .rev()
         .collect();
-    let mut visited = HashSet::new();
-    let mut frontier = VecDeque::new();
+    let mut visited = FxHashSet::default();
+    let mut frontier = vec![];
     let mut accum = 0;
 
     while let Some(start) = unexplored.pop() {
         visited.insert(start);
         frontier.clear();
-        frontier.push_back(start);
+        frontier.push(start);
         
         let mut group = Group::default();
-        while let Some(p @ (r, c)) = frontier.pop_front() {
+        while let Some(p @ (r, c)) = frontier.pop() {
             let value = grid[r][c];
             let mut inners = 0;
 
@@ -64,7 +64,7 @@ pub fn part1(input: &str) -> usize {
                 .for_each(|np| {
                     inners += 1;
                     if visited.insert(np) {
-                        frontier.push_back(np);
+                        frontier.push(np);
                     }
                 });
 
@@ -86,17 +86,17 @@ pub fn part2(input: &str) -> usize {
         .flat_map(|r| (0..grid[0].len()).map(move |c| (r, c)))
         .rev()
         .collect();
-    let mut visited = HashSet::new();
-    let mut frontier = VecDeque::new();
+    let mut visited = FxHashSet::default();
+    let mut frontier = vec![];
     let mut accum = 0;
 
     while let Some(start) = unexplored.pop() {
         visited.insert(start);
         frontier.clear();
-        frontier.push_back(start);
+        frontier.push(start);
         
         let mut group = Group::default();
-        while let Some(p @ (r, c)) = frontier.pop_front() {
+        while let Some(p @ (r, c)) = frontier.pop() {
             let value = grid[r][c];
             let neighbors = [
                 (-1, -1), // UL
@@ -118,7 +118,7 @@ pub fn part2(input: &str) -> usize {
 
             [uc, cl, cr, bc].into_iter().flatten().for_each(|np| {
                 if visited.insert(np) {
-                    frontier.push_back(np);
+                    frontier.push(np);
                 }
             });
         }
