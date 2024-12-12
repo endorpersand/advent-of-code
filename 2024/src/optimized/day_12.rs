@@ -1,0 +1,143 @@
+use std::collections::{HashSet, VecDeque};
+
+type Position = (usize, usize);
+type PosDelta = (isize, isize);
+fn offset(grid: &[Vec<u8>], (r, c): Position, (dr, dc): PosDelta) -> Option<Position> {
+    let (nr, nc) = (r.wrapping_add_signed(dr), c.wrapping_add_signed(dc));
+    grid.get(nr)?.get(nc).map(|_| (nr, nc))
+}
+fn find_neighbors(grid: &[Vec<u8>], (r, c): Position) -> impl Iterator<Item=Position> + '_ {
+    const DIRS: [PosDelta; 4] = [(0, 1), (0, -1), (1, 0), (-1, 0)];
+    DIRS.into_iter()
+        .filter_map(move |delta| offset(grid, (r, c), delta))
+}
+
+#[derive(Default, Debug)]
+struct Group {
+    value: char,
+    
+    points: Vec<Position>,
+    // part 1
+    inner_edges: usize,
+    // part 2
+    corners: usize
+}
+impl Group {
+    fn area(&self) -> usize {
+        self.points.len()
+    }
+    fn perimeter(&self) -> usize {
+        self.points.len() * 4 - self.inner_edges
+    }
+}
+
+pub fn part1(input: &str) -> usize {
+    let grid: Vec<Vec<_>> = input.lines()
+        .map(|l| l.bytes().collect())
+        .collect();
+
+    let mut unexplored: Vec<_> = (0..grid.len())
+        .flat_map(|r| (0..grid[0].len()).map(move |c| (r, c)))
+        .rev()
+        .collect();
+    let mut visited = HashSet::new();
+    let mut groups = vec![];
+
+    while let Some(start) = unexplored.pop() {
+        visited.insert(start);
+        let mut frontier = VecDeque::from_iter([start]);
+        
+        let mut group = Group::default();
+        while let Some(p @ (r, c)) = frontier.pop_front() {
+            let value = grid[r][c];
+            group.value = char::from(value);
+            let mut inners = 0;
+
+            // For each neighbor (which is in the group),
+            // track an inner-edge and add to frontier
+            find_neighbors(&grid, p)
+                .filter(|&(nr, nc)| grid[nr][nc] == value)
+                .for_each(|np| {
+                    inners += 1;
+                    if visited.insert(np) {
+                        frontier.push_back(np);
+                    }
+                });
+
+            group.points.push(p);
+            group.inner_edges += inners;
+        }
+
+        groups.push(group);
+        unexplored.retain(|p| !visited.contains(p));
+    }
+
+    groups.iter()
+        .map(|g| g.area() * g.perimeter())
+        .sum()
+}
+
+pub fn part2(input: &str) -> usize {
+    let grid: Vec<Vec<_>> = input.lines()
+        .map(|l| l.bytes().collect())
+        .collect();
+
+    let mut unexplored: Vec<_> = (0..grid.len())
+        .flat_map(|r| (0..grid[0].len()).map(move |c| (r, c)))
+        .rev()
+        .collect();
+    let mut visited = HashSet::new();
+    let mut groups = vec![];
+
+    while let Some(start) = unexplored.pop() {
+        visited.insert(start);
+        let mut frontier = VecDeque::from_iter([start]);
+        
+        let mut group = Group::default();
+        while let Some(p @ (r, c)) = frontier.pop_front() {
+            let value = grid[r][c];
+            group.value = char::from(value);
+            let neighbors = [
+                (-1, -1), // UL
+                (-1,  0), // UC
+                (-1,  1), // UR
+                ( 0, -1), // CL
+                ( 0,  1), // CR
+                ( 1, -1), // BL
+                ( 1,  0), // BC
+                ( 1,  1), // BR
+            ].map(|delta| offset(&grid, p, delta).filter(|&(nr, nc)| grid[nr][nc] == value));
+            let [ul, uc, ur, cl, cr, bl, bc, br] = neighbors;
+
+            group.points.push(p);
+            if uc.is_some() == cl.is_some() && (uc.is_none() || ul.is_none()) { group.corners += 1 };
+            if uc.is_some() == cr.is_some() && (uc.is_none() || ur.is_none()) { group.corners += 1 };
+            if bc.is_some() == cl.is_some() && (bc.is_none() || bl.is_none()) { group.corners += 1 };
+            if bc.is_some() == cr.is_some() && (bc.is_none() || br.is_none()) { group.corners += 1 };
+
+            [uc, cl, cr, bc].into_iter().flatten().for_each(|np| {
+                if visited.insert(np) {
+                    frontier.push_back(np);
+                }
+            });
+        }
+
+        groups.push(group);
+        unexplored.retain(|p| !visited.contains(p));
+    }
+
+    groups.iter()
+        .map(|g| g.area() * g.corners)
+        .sum()
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn d12_correct() {
+        let input = std::fs::read_to_string("inputs/12.txt").unwrap();
+        assert_eq!(super::part1(&input), 1363682);
+        assert_eq!(super::part2(&input), 787680);
+    }
+}
+
