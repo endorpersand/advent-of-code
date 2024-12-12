@@ -1,15 +1,51 @@
-use rustc_hash::FxHashSet;
-
 type Position = (usize, usize);
 type PosDelta = (isize, isize);
-fn offset(grid: &[Vec<u8>], (r, c): Position, (dr, dc): PosDelta) -> Option<Position> {
+fn offset<T>(grid: &Grid<T>, (r, c): Position, (dr, dc): PosDelta) -> Option<Position> {
     let np @ (nr, nc) = (r.wrapping_add_signed(dr), c.wrapping_add_signed(dc));
     ((0..grid.len()).contains(&nr) && (0..grid[0].len()).contains(&nc)).then_some(np)
 }
-fn find_neighbors(grid: &[Vec<u8>], (r, c): Position) -> impl Iterator<Item=Position> + '_ {
+fn find_neighbors<T>(grid: &Grid<T>, (r, c): Position) -> impl Iterator<Item=Position> + '_ {
     const DIRS: [PosDelta; 4] = [(0, 1), (0, -1), (1, 0), (-1, 0)];
     DIRS.into_iter()
         .filter_map(move |delta| offset(grid, (r, c), delta))
+}
+
+const N: usize = 140;
+struct Grid<T> {
+    inner: Vec<[T; N]>
+}
+impl<T: Copy> Grid<T> {
+    fn new(rows: usize) -> Self where T: Default {
+        let inner = std::iter::repeat_with(|| std::array::from_fn(|_| Default::default()))
+            .take(rows)
+            .collect();
+
+        Self { inner }
+    }
+}
+impl Grid<bool> {
+    fn insert(&mut self, (r, c): Position) -> bool {
+        !std::mem::replace(&mut self[r][c], true)
+    }
+    fn find_unexplored(&self) -> Option<Position> {
+        self.inner.iter().enumerate()
+            .find_map(|(r, row)| {
+                row.iter().enumerate()
+                    .find_map(|(c, b)| (!b).then_some((r, c)))
+            })
+    }
+}
+impl<T> std::ops::Deref for Grid<T> {
+    type Target = [[T; N]];
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+impl<T> std::ops::DerefMut for Grid<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
+    }
 }
 
 #[derive(Default, Debug)]
@@ -30,25 +66,23 @@ impl Group {
 }
 
 // TODO: Make this contiguous
-fn parse(input: &str) -> Vec<Vec<u8>> {
-    input.lines()
-        .map(|l| l.bytes().collect())
-        .collect()
+fn parse(input: &str) -> Grid<u8> {
+    let inner = input.lines()
+        .map(|l| l.bytes().collect::<Vec<_>>())
+        .flat_map(<[_; N]>::try_from)
+        .collect();
+
+    Grid { inner }
 
 }
 pub fn part1(input: &str) -> usize {
     let grid = parse(input);
-
-    let mut unexplored: Vec<_> = (0..grid.len())
-        .flat_map(|r| (0..grid[0].len()).map(move |c| (r, c)))
-        .rev()
-        .collect();
-    let mut visited = FxHashSet::default();
+    let mut explored = Grid::new(grid.len());
     let mut frontier = vec![];
     let mut accum = 0;
 
-    while let Some(start) = unexplored.pop() {
-        visited.insert(start);
+    while let Some(start) = explored.find_unexplored() {
+        explored.insert(start);
         frontier.clear();
         frontier.push(start);
         
@@ -63,7 +97,7 @@ pub fn part1(input: &str) -> usize {
                 .filter(|&(nr, nc)| grid[nr][nc] == value)
                 .for_each(|np| {
                     inners += 1;
-                    if visited.insert(np) {
+                    if explored.insert(np) {
                         frontier.push(np);
                     }
                 });
@@ -73,7 +107,6 @@ pub fn part1(input: &str) -> usize {
         }
 
         accum += group.area() * group.perimeter();
-        unexplored.retain(|p| !visited.contains(p));
     }
 
     accum
@@ -81,17 +114,12 @@ pub fn part1(input: &str) -> usize {
 
 pub fn part2(input: &str) -> usize {
     let grid = parse(input);
-
-    let mut unexplored: Vec<_> = (0..grid.len())
-        .flat_map(|r| (0..grid[0].len()).map(move |c| (r, c)))
-        .rev()
-        .collect();
-    let mut visited = FxHashSet::default();
+    let mut explored = Grid::new(grid.len());
     let mut frontier = vec![];
     let mut accum = 0;
 
-    while let Some(start) = unexplored.pop() {
-        visited.insert(start);
+    while let Some(start) = explored.find_unexplored() {
+        explored.insert(start);
         frontier.clear();
         frontier.push(start);
         
@@ -117,14 +145,13 @@ pub fn part2(input: &str) -> usize {
             if bc.is_some() == cr.is_some() && (bc.is_none() || br.is_none()) { group.corners += 1 };
 
             [uc, cl, cr, bc].into_iter().flatten().for_each(|np| {
-                if visited.insert(np) {
+                if explored.insert(np) {
                     frontier.push(np);
                 }
             });
         }
 
         accum += group.area() * group.corners;
-        unexplored.retain(|p| !visited.contains(p));
     }
 
     accum
