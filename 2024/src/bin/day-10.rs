@@ -53,5 +53,5 @@ fn soln1(input: &str) {
     let p1: usize = trailheads.into_iter().sum();
     println!("{p1}");
 
-    // Recomment for pt1, uncomment visited set for pt2
+    // Uncomment visited set for pt1, recomment visited set for pt2
 }
