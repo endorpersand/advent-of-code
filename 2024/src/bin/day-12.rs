@@ -2,7 +2,7 @@ use std::collections::{HashSet, VecDeque};
 
 fn main() {
     let input = std::fs::read_to_string("inputs/12.txt").unwrap();
-    // part1(&input);
+    part1(&input);
     part2(&input);
 }
 
@@ -22,7 +22,9 @@ fn find_neighbors(grid: &[Vec<u8>], (r, c): Position) -> impl Iterator<Item=Posi
 struct Group {
     value: char,
     
-    points: Vec<(Position, u8)>,
+    points: Vec<Position>,
+    // part 1
+    inner_edges: usize,
     // part 2
     corners: usize
 }
@@ -31,7 +33,7 @@ impl Group {
         self.points.len()
     }
     fn perimeter(&self) -> usize {
-        self.points.len() * 4 - self.points.iter().map(|&(_, d)| usize::from(d)).sum::<usize>()
+        self.points.len() * 4 - self.inner_edges
     }
 }
 #[allow(dead_code)]
@@ -55,17 +57,21 @@ fn part1(input: &str) {
         while let Some(p @ (r, c)) = frontier.pop_front() {
             let value = grid[r][c];
             group.value = char::from(value);
-            let neighbors: Vec<_> = find_neighbors(&grid, p)
+            let mut inners = 0;
+
+            // For each neighbor (which is in the group),
+            // track an inner-edge and add to frontier
+            find_neighbors(&grid, p)
                 .filter(|&(nr, nc)| grid[nr][nc] == value)
-                .collect();
+                .for_each(|np| {
+                    inners += 1;
+                    if visited.insert(np) {
+                        frontier.push_back(np);
+                    }
+                });
 
-            group.points.push((p, neighbors.len() as u8));
-
-            neighbors.into_iter().for_each(|np| {
-                if visited.insert(np) {
-                    frontier.push_back(np);
-                }
-            });
+            group.points.push(p);
+            group.inner_edges += inners;
         }
 
         groups.push(group);
@@ -107,7 +113,7 @@ fn part2(input: &str) {
             ].map(|delta| offset(&grid, p, delta).filter(|&(nr, nc)| grid[nr][nc] == value));
             let [ul, uc, ur, cl, cr, bl, bc, br] = neighbors;
 
-            group.points.push((p, 0));
+            group.points.push(p);
             if uc.is_some() == cl.is_some() && (uc.is_none() || ul.is_none()) { group.corners += 1 };
             if uc.is_some() == cr.is_some() && (uc.is_none() || ur.is_none()) { group.corners += 1 };
             if bc.is_some() == cl.is_some() && (bc.is_none() || bl.is_none()) { group.corners += 1 };
