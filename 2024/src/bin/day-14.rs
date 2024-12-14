@@ -35,16 +35,18 @@ fn parse(input: &str) -> Vec<Robot> {
 }
 #[allow(dead_code)]
 fn part1(input: &str) {
-    let mut data = parse(input);
-    data.iter_mut().for_each(|r| r.iterate(100));
+    use std::cmp::Ordering;
+
+    let mut robots = parse(input);
+    robots.iter_mut().for_each(|r| r.iterate(100));
     
     let mut quadrants = [0; 4];
-    for r in &data {
+    for r in &robots {
         match (r.position.0.cmp(&(WIDTH / 2)), r.position.1.cmp(&(HEIGHT / 2))) {
-            (std::cmp::Ordering::Less, std::cmp::Ordering::Less) => quadrants[0] += 1,
-            (std::cmp::Ordering::Less, std::cmp::Ordering::Greater) => quadrants[1] += 1,
-            (std::cmp::Ordering::Greater, std::cmp::Ordering::Less) => quadrants[2] += 1,
-            (std::cmp::Ordering::Greater, std::cmp::Ordering::Greater) => quadrants[3] += 1,
+            (Ordering::Less, Ordering::Less) => quadrants[0] += 1,
+            (Ordering::Less, Ordering::Greater) => quadrants[1] += 1,
+            (Ordering::Greater, Ordering::Less) => quadrants[2] += 1,
+            (Ordering::Greater, Ordering::Greater) => quadrants[3] += 1,
             _ => {}
         }
     }
@@ -53,41 +55,39 @@ fn part1(input: &str) {
     println!("{p1}");
 }
 
-fn render(robots: &[Robot]) -> Vec<[bool; WIDTH]> {
-    let mut data = vec![[false; WIDTH]; HEIGHT];
-    for r in robots {
-        let (x, y) = r.position;
-        data[y][x] = true;
-    }
-    data
-}
-fn print_data(robots: &[Robot]) {
-    let data = render(robots);
-    for row in data {
-        for cell in row {
-            print!("{}", if cell { '#' } else { '.' });
-        }
-        println!();
-    }
-}
-fn count_strip(n: &[bool]) -> usize {
-    n.split(|c| !c).map(|n| n.len()).max().unwrap_or(0)
-}
-
 #[allow(dead_code)]
 fn part2(input: &str) {
-    let mut data = parse(input);
+    let mut robots = parse(input);
     let mut iters = 0;
+    let mut render = vec![[false; WIDTH]; HEIGHT];
 
     loop {
-        let rendered = render(&data);
-        if rendered.iter().any(|r| count_strip(r) > 10) {
-            println!("tree {iters}");
-            print_data(&data);
+        // Update render:
+        render.as_flattened_mut().fill(false);
+        robots.iter()
+            .map(|r| r.position)
+            .for_each(|(x, y)| render[y][x] = true);
+
+        // Christmas trees have a horizontal of >10
+        let horiz = render.as_flattened()
+            .split(|c| !c)
+            .map(|chunk| chunk.len())
+            .max()
+            .unwrap_or(0);
+        if horiz > 10 {
+            // print tree
+            for row in &render {
+                for &cell in row {
+                    print!("{}", if cell { '#' } else { '.' });
+                }
+                println!();
+            }
+            //
+
             break;
         }
         
-        data.iter_mut().for_each(|r| r.iterate(1));
+        robots.iter_mut().for_each(|r| r.iterate(1));
         iters += 1;
     }
 
