@@ -28,10 +28,10 @@ impl std::fmt::Display for Tile {
         write!(f, "{}", char::from(*self as u8))
     }
 }
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 #[repr(u8)]
 enum Tile2 {
-    Wall = b'#', BoxL = b'[', BoxR = b']', #[default] None = b'.'
+    Wall = b'#', BoxL = b'[', BoxR = b']', None = b'.'
 }
 impl std::fmt::Display for Tile2 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -70,8 +70,12 @@ impl<T> Grid<T> {
     fn get(&self, (r, c): Position) -> Option<&T> {
         self.grid.get(r)?.get(c)
     }
-    fn get_mut(&mut self, (r, c): Position) -> Option<&mut T> {
-        self.grid.get_mut(r)?.get_mut(c)
+    fn swap(&mut self, (r0, c0): Position, (r1, c1): Position) where T: Copy {
+        if (r0, c0) != (r1, c1) {
+            let ft = self.grid[r0][c0];
+            self.grid[r0][c0] = self.grid[r1][c1];
+            self.grid[r1][c1] = ft;
+        }
     }
 }
 impl<T: std::fmt::Display> std::fmt::Display for Grid<T> {
@@ -99,14 +103,8 @@ impl Grid<Tile> {
         let next = dir.translate(last);
         
         if self.get(next).is_some_and(|&t| t == Tile::None) {
-            let first @ (fr, fc) = dir.translate(self.robot);
-            let (nr, nc) = next;
-
-            // Manual swap
-            let ft = self.grid[fr][fc];
-            self.grid[fr][fc] = self.grid[nr][nc];
-            self.grid[nr][nc] = ft;
-            //
+            let first = dir.translate(self.robot);
+            self.swap(first, next);
             self.robot = first;
         }
     }
@@ -131,17 +129,18 @@ impl Grid<Tile2> {
             Direction::Up | Direction::Down => {
                 // Rudimentary BFS
                 let mut boxes = vec![];
-                let mut frontier = VecDeque::from_iter([dir.translate(self.robot)]);
+                let mut frontier = VecDeque::from_iter([self.robot]);
                 while let Some(p) = frontier.pop_front() {
-                    let pos = match self.get(p) {
-                        Some(Tile2::BoxL) => [p, Direction::Right.translate(p)],
-                        Some(Tile2::BoxR) => [Direction::Left.translate(p), p],
+                    let np = dir.translate(p);
+                    let pos = match self.get(np) {
+                        Some(Tile2::BoxL) => [np, Direction::Right.translate(np)],
+                        Some(Tile2::BoxR) => [Direction::Left.translate(np), np],
                         _ => continue,
                     };
-                    for p in pos {
-                        if !boxes.contains(&p) {
-                            boxes.push(p);
-                            frontier.push_back(dir.translate(p));
+                    for np in pos {
+                        if !boxes.contains(&np) {
+                            boxes.push(np);
+                            frontier.push_back(np);
                         }
                     }
                 }
@@ -149,16 +148,12 @@ impl Grid<Tile2> {
             },
         };
         
-        let pushable = boxes.iter().chain([&self.robot])
-            .all(|&p| self.get(dir.translate(p)).is_some_and(|&t| t != Tile2::Wall));
+        let pushable = [self.robot].iter().chain(&boxes).rev()
+            .map(|&p| self.get(dir.translate(p)))
+            .all(|mt| mt.is_some_and(|&t| t != Tile2::Wall));
         if pushable {
-            let box_pairs: Vec<_> = boxes.into_iter().map(|p| {
-                let np = dir.translate(p);
-                (np, std::mem::take(self.get_mut(p).unwrap()))
-            }).collect();
-
-            for ((r, c), t) in box_pairs {
-                self.grid[r][c] = t;
+            for p in boxes.into_iter().rev() {
+                self.swap(p, dir.translate(p));
             }
             self.robot = dir.translate(self.robot);
         }
