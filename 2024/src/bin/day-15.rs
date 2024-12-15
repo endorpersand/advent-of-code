@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 fn main() {
     let input = std::fs::read_to_string("inputs/15.txt").unwrap();
-    // part1(&input);
+    part1(&input);
     part2(&input);
 }
 
@@ -60,9 +60,9 @@ impl Direction {
         }
     }
 
-    fn ray(self) -> impl Iterator<Item=PosDelta> {
+    fn ray(self, start: Position) -> impl Iterator<Item=Position> {
         let (dr, dc) = self.delta();
-        (1..).map(move |n| (dr * n, dc * n))
+        (1..).map(move |n| translate(start, (dr * n, dc * n)))
     }
 }
 fn translate((r, c): Position, (dr, dc): PosDelta) -> Position {
@@ -80,10 +80,25 @@ impl<T> Grid<T> {
         self.grid.get_mut(r)?.get_mut(c)
     }
 }
+impl<T: std::fmt::Display> std::fmt::Display for Grid<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (r, row) in self.grid.iter().enumerate() {
+            for (c, cell) in row.iter().enumerate() {
+                if (r, c) == self.robot {
+                    write!(f, "@")?;
+                } else {
+                    write!(f, "{cell}")?;
+                }
+            }
+            writeln!(f)?;
+        }
+        Ok(())
+    }
+}
+
 impl Grid<Tile> {
     fn shift(&mut self, dir: Direction) {
-        let boxes: Vec<_> = dir.ray()
-            .map(|d| translate(self.robot, d))
+        let boxes: Vec<_> = dir.ray(self.robot)
             .take_while(|&p| self.get(p).is_some_and(|&t| t == Tile::Box))
             .collect();
 
@@ -113,8 +128,7 @@ impl Grid<Tile2> {
     fn shift(&mut self, dir: Direction) {
         let boxes = match dir {
             Direction::Right | Direction::Left => {
-                dir.ray()
-                .map(|d| translate(self.robot, d))
+                dir.ray(self.robot)
                 .take_while(|&p| self.get(p).is_some_and(|t| matches!(t, Tile2::BoxL | Tile2::BoxR)))
                 .collect()
             },
@@ -164,21 +178,6 @@ impl Grid<Tile2> {
             .sum()
     }
 }
-impl<T: std::fmt::Display> std::fmt::Display for Grid<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for (r, row) in self.grid.iter().enumerate() {
-            for (c, cell) in row.iter().enumerate() {
-                if (r, c) == self.robot {
-                    write!(f, "@")?;
-                } else {
-                    write!(f, "{cell}")?;
-                }
-            }
-            writeln!(f)?;
-        }
-        Ok(())
-    }
-}
 
 fn parse(input: &str) -> (Grid<Tile>, Vec<Direction>) {
     let mut lines = input.lines();
@@ -194,7 +193,7 @@ fn parse(input: &str) -> (Grid<Tile>, Vec<Direction>) {
                 Tile::None
             },
             b'.' => Tile::None,
-            _ => unreachable!()
+            b => unreachable!("{}", char::from(b))
         }).collect()).collect();
 
     let directions = lines.flat_map(|l| l.bytes().map(|b| match b {
