@@ -54,12 +54,13 @@ impl Direction {
     }
 
     fn ray(self, start: Position) -> impl Iterator<Item=Position> {
-        let (dr, dc) = self.delta();
-        (1..).map(move |n| translate(start, (dr * n, dc * n)))
+        std::iter::successors(Some(self.translate(start)), move |&p| Some(self.translate(p)))
     }
-}
-fn translate((r, c): Position, (dr, dc): PosDelta) -> Position {
-    (r.wrapping_add_signed(dr), c.wrapping_add_signed(dc))
+
+    fn translate(self, (r, c): Position) -> Position {
+        let (dr, dc) = self.delta();
+        (r.wrapping_add_signed(dr), c.wrapping_add_signed(dc))
+    }
 }
 struct Grid<T> {
     grid: Vec<Vec<T>>,
@@ -95,10 +96,10 @@ impl Grid<Tile> {
             .take_while(|&p| self.get(p).is_some_and(|&t| t == Tile::Box))
             .last()
             .unwrap_or(self.robot);
-        let next = translate(last, dir.delta());
+        let next = dir.translate(last);
         
         if self.get(next).is_some_and(|&t| t == Tile::None) {
-            let first @ (fr, fc) = translate(self.robot, dir.delta());
+            let first @ (fr, fc) = dir.translate(self.robot);
             let (nr, nc) = next;
 
             // Manual swap
@@ -130,17 +131,17 @@ impl Grid<Tile2> {
             Direction::Up | Direction::Down => {
                 // Rudimentary BFS
                 let mut boxes = vec![];
-                let mut frontier = VecDeque::from_iter([translate(self.robot, dir.delta())]);
+                let mut frontier = VecDeque::from_iter([dir.translate(self.robot)]);
                 while let Some(p) = frontier.pop_front() {
                     let pos = match self.get(p) {
-                        Some(Tile2::BoxL) => [p, translate(p, Direction::Right.delta())],
-                        Some(Tile2::BoxR) => [translate(p, Direction::Left.delta()), p],
+                        Some(Tile2::BoxL) => [p, Direction::Right.translate(p)],
+                        Some(Tile2::BoxR) => [Direction::Left.translate(p), p],
                         _ => continue,
                     };
                     for p in pos {
                         if !boxes.contains(&p) {
                             boxes.push(p);
-                            frontier.push_back(translate(p, dir.delta()));
+                            frontier.push_back(dir.translate(p));
                         }
                     }
                 }
@@ -149,17 +150,17 @@ impl Grid<Tile2> {
         };
         
         let pushable = boxes.iter().chain([&self.robot])
-            .all(|&p| self.get(translate(p, dir.delta())).is_some_and(|&t| t != Tile2::Wall));
+            .all(|&p| self.get(dir.translate(p)).is_some_and(|&t| t != Tile2::Wall));
         if pushable {
             let box_pairs: Vec<_> = boxes.into_iter().map(|p| {
-                let np = translate(p, dir.delta());
+                let np = dir.translate(p);
                 (np, std::mem::take(self.get_mut(p).unwrap()))
             }).collect();
 
             for ((r, c), t) in box_pairs {
                 self.grid[r][c] = t;
             }
-            self.robot = translate(self.robot, dir.delta());
+            self.robot = dir.translate(self.robot);
         }
     }
     fn score(&self) -> usize {
