@@ -80,7 +80,7 @@ impl<T> Grid<T> {
 }
 impl<T: std::fmt::Display> std::fmt::Display for Grid<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for (r, row) in self.grid.iter().enumerate() {
+        self.grid.iter().enumerate().try_for_each(|(r, row)| {
             for (c, cell) in row.iter().enumerate() {
                 if (r, c) == self.robot {
                     write!(f, "@")?;
@@ -88,24 +88,21 @@ impl<T: std::fmt::Display> std::fmt::Display for Grid<T> {
                     write!(f, "{cell}")?;
                 }
             }
-            writeln!(f)?;
-        }
-        Ok(())
+            writeln!(f)
+        })
     }
 }
 
 impl Grid<Tile> {
     fn shift(&mut self, dir: Direction) {
-        let last = dir.ray(self.robot)
-            .take_while(|&p| self.get(p).is_some_and(|&t| t == Tile::Box))
-            .last()
-            .unwrap_or(self.robot);
-        let next = dir.translate(last);
+        let mend = dir.ray(self.robot)
+            .find(|&p| !self.get(p).is_some_and(|&t| t == Tile::Box))
+            .filter(|&p| self.get(p).is_some_and(|&t| t == Tile::None));
         
-        if self.get(next).is_some_and(|&t| t == Tile::None) {
-            let first = dir.translate(self.robot);
-            self.swap(first, next);
-            self.robot = first;
+        if let Some(end) = mend {
+            let start = dir.translate(self.robot);
+            self.swap(start, end);
+            self.robot = start;
         }
     }
     fn score(&self) -> usize {
