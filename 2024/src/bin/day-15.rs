@@ -10,8 +10,9 @@ type Position = (usize, usize);
 type PosDelta = (isize, isize);
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[repr(u8)]
 enum Tile {
-    Wall, Box, None
+    Wall = b'#', Box = b'O', None = b'.'
 }
 impl Tile {
     fn enlarge(self) -> [Tile2; 2] {
@@ -24,25 +25,17 @@ impl Tile {
 }
 impl std::fmt::Display for Tile {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Tile::Wall => write!(f, "#"),
-            Tile::Box  => write!(f, "O"),
-            Tile::None => write!(f, "."),
-        }
+        write!(f, "{}", char::from(*self as u8))
     }
 }
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+#[repr(u8)]
 enum Tile2 {
-    Wall, BoxL, BoxR, #[default] None
+    Wall = b'#', BoxL = b'[', BoxR = b']', #[default] None = b'.'
 }
 impl std::fmt::Display for Tile2 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Tile2::Wall => write!(f, "#"),
-            Tile2::BoxL => write!(f, "["),
-            Tile2::BoxR => write!(f, "]"),
-            Tile2::None => write!(f, "."),
-        }
+        write!(f, "{}", char::from(*self as u8))
     }
 }
 
