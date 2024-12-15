@@ -91,26 +91,28 @@ impl<T: std::fmt::Display> std::fmt::Display for Grid<T> {
 
 impl Grid<Tile> {
     fn shift(&mut self, dir: Direction) {
-        let boxes: Vec<_> = dir.ray(self.robot)
+        let last = dir.ray(self.robot)
             .take_while(|&p| self.get(p).is_some_and(|&t| t == Tile::Box))
-            .collect();
+            .last()
+            .unwrap_or(self.robot);
+        let next = translate(last, dir.delta());
+        
+        if self.get(next).is_some_and(|&t| t == Tile::None) {
+            let first @ (fr, fc) = translate(self.robot, dir.delta());
+            let (nr, nc) = next;
 
-        let last = boxes.last().copied().unwrap_or(self.robot);
-        let pushable = self.get(translate(last, dir.delta())).is_some_and(|&t| t == Tile::None);
-        if pushable {
-            for bp in boxes.into_iter().rev() {
-                *self.get_mut(translate(bp, dir.delta())).unwrap() = Tile::Box;
-            }
-            self.robot = translate(self.robot, dir.delta());
-            *self.get_mut(self.robot).unwrap() = Tile::None;
+            // Manual swap
+            let ft = self.grid[fr][fc];
+            self.grid[fr][fc] = self.grid[nr][nc];
+            self.grid[nr][nc] = ft;
+            //
+            self.robot = first;
         }
     }
     fn score(&self) -> usize {
-        self.grid.iter()
-            .enumerate()
+        self.grid.iter().enumerate()
             .flat_map(|(r, row)| {
-                row.iter()
-                    .enumerate()
+                row.iter().enumerate()
                     .filter(|(_, &t)| t == Tile::Box)
                     .map(move |(c, _)| 100 * r + c)
             })
@@ -126,6 +128,7 @@ impl Grid<Tile2> {
                 .collect()
             },
             Direction::Up | Direction::Down => {
+                // Rudimentary BFS
                 let mut boxes = vec![];
                 let mut frontier = VecDeque::from_iter([translate(self.robot, dir.delta())]);
                 while let Some(p) = frontier.pop_front() {
@@ -160,11 +163,9 @@ impl Grid<Tile2> {
         }
     }
     fn score(&self) -> usize {
-        self.grid.iter()
-            .enumerate()
+        self.grid.iter().enumerate()
             .flat_map(|(r, row)| {
-                row.iter()
-                    .enumerate()
+                row.iter().enumerate()
                     .filter(|(_, &t)| t == Tile2::BoxL)
                     .map(move |(c, _)| 100 * r + c)
             })
