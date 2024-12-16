@@ -1,6 +1,8 @@
 use std::cmp::Reverse;
 use std::collections::hash_map::Entry;
-use std::collections::{BinaryHeap, HashMap, HashSet};
+use std::collections::BinaryHeap;
+
+use rustc_hash::FxHashMap;
 
 type Position = (usize, usize);
 type PosDelta = (isize, isize);
@@ -30,6 +32,10 @@ struct Grid<T> {
     grid: Vec<Vec<T>>
 }
 impl<T> Grid<T> {
+    fn new(default: T, rows: usize, cols: usize) -> Self where T: Clone {
+        Self { grid: vec![vec![default; cols]; rows] }
+    }
+
     fn get(&self, (r, c): Position) -> Option<&T> {
         self.grid.get(r)?.get(c)
     }
@@ -52,9 +58,19 @@ impl Grid<bool> {
                 (cost, st)
             })
     }
+
+    fn count_set(&self) -> usize {
+        self.grid.iter()
+            .map(|r| r.iter().filter(|&&c| c).count())
+            .sum()
+    }
 }
 impl Grid<u8> {
-    
+    fn insert(&mut self, ((r, c), d): State) -> bool {
+        let is_clear = self.grid[r][c] & (1 << (d as u8)) == 0;
+        self.grid[r][c] |= 1 << (d as u8);
+        is_clear
+    }
 }
 struct Data {
     grid: Grid<bool>,
@@ -81,7 +97,7 @@ fn parse(input: &str) -> Data {
 pub fn part1(input: &str) -> usize {
     let Data { grid, start, end } = parse(input);
 
-    let mut visited = HashSet::new();
+    let mut visited = Grid::new(0, grid.grid.len(), grid.grid[0].len());
     let mut pq = BinaryHeap::new();
     let mut result = None;
 
@@ -104,11 +120,11 @@ pub fn part1(input: &str) -> usize {
 pub fn part2(input: &str) -> usize {
     let Data { grid, start, end } = parse(input);
 
-    let mut dist_map = HashMap::new();
+    let mut dist_map = FxHashMap::default();
     let mut pq = BinaryHeap::new();
     let mut end_state = None;
 
-    pq.push((Reverse(0usize), start, vec![]));
+    pq.push((Reverse(0usize), start, [None; 4]));
     while let Some((Reverse(dist), st @ (p, _), parents)) = pq.pop() {
         match dist_map.entry(st) {
             Entry::Vacant(e) if p == end => {
@@ -119,26 +135,31 @@ pub fn part2(input: &str) -> usize {
                 e.insert((dist, parents));
                 pq.extend({
                     grid.neighbors(st)
-                        .map(|(w, nst)| (Reverse(dist + w), nst, vec![st]))
+                        .map(|(w, nst)| (Reverse(dist + w), nst, [Some(st), None, None, None]))
                 });
             }
-            Entry::Occupied(mut e) => if dist == e.get().0 {
-                e.get_mut().1.extend(parents);
+            Entry::Occupied(mut e) => {
+                let (ed, ep) = e.get_mut();
+                if dist == *ed {
+                    let i = ep.partition_point(|st| st.is_some());
+                    let j = parents.partition_point(|st| st.is_some());
+                    ep[i..i+j].copy_from_slice(&parents[..j]);
+                }
             }
         }
     }
 
-    let mut visited = HashSet::new();
+    let mut visited = Grid::new(false, grid.grid.len(), grid.grid[0].len());
     let mut frontier = Vec::from_iter(end_state);
-    while let Some(node @ (np, _)) = frontier.pop() {
-        visited.insert(np);
+    while let Some(node @ ((nr, nc), _)) = frontier.pop() {
+        visited.grid[nr][nc] = true;
         if node == start { continue; }
         if let Some((_, parents)) = dist_map.get(&node) {
-            frontier.extend_from_slice(parents);
+            frontier.extend(parents.iter().take_while(|s| s.is_some()).flatten());
         }
     }
 
-    visited.len()
+    visited.count_set()
 }
 
 #[cfg(test)]
