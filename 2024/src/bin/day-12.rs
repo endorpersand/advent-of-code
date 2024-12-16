@@ -36,7 +36,7 @@ impl Group {
         self.points.len() * 4 - self.inner_edges
     }
 }
-#[allow(dead_code)]
+
 fn part1(input: &str) {
     let grid: Vec<Vec<_>> = input.lines()
         .map(|l| l.bytes().collect())
@@ -80,7 +80,6 @@ fn part1(input: &str) {
     let p1: usize = groups.iter().map(|g| g.area() * g.perimeter()).sum();
     println!("{p1}");
 }
-#[allow(dead_code)]
 fn part2(input: &str) {
     let grid: Vec<Vec<_>> = input.lines()
         .map(|l| l.bytes().collect())

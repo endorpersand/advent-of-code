@@ -2,31 +2,30 @@ use std::collections::HashSet;
 
 fn main() {
     let input = std::fs::read_to_string("inputs/06.txt").unwrap();
-    soln1(&input);
+    soln(&input);
 }
 
-#[allow(dead_code)]
-fn soln1(input: &str) {
-    type Position = (usize, usize);
-    type Orientation = (isize, isize);
-    type State = (Position, Orientation);
+type Position = (usize, usize);
+type Orientation = (isize, isize);
+type State = (Position, Orientation);
 
-    const UP: Orientation = (-1, 0);
-    fn rotate((dr, dc): Orientation) -> Orientation {
-        (dc, -dr)
-    }
-    fn path_iter(grid: &[Vec<bool>], start: State) -> impl Iterator<Item = State> + '_ {
-        std::iter::successors(Some(start), |&((r, c), (dr, dc))| {
-            let (nr, nc) = r.checked_add_signed(dr).zip(c.checked_add_signed(dc))?;
-            let blocked = grid.get(nr).and_then(|r| r.get(nc))?;
+const UP: Orientation = (-1, 0);
+fn rotate((dr, dc): Orientation) -> Orientation {
+    (dc, -dr)
+}
+fn path_iter(grid: &[Vec<bool>], start: State) -> impl Iterator<Item = State> + '_ {
+    std::iter::successors(Some(start), |&((r, c), (dr, dc))| {
+        let (nr, nc) = r.checked_add_signed(dr).zip(c.checked_add_signed(dc))?;
+        let blocked = grid.get(nr).and_then(|r| r.get(nc))?;
 
-            match blocked {
-                true  => Some(((r, c), rotate((dr, dc)))),
-                false => Some(((nr, nc), (dr, dc))),
-            }
-        })
-    }
+        match blocked {
+            true  => Some(((r, c), rotate((dr, dc)))),
+            false => Some(((nr, nc), (dr, dc))),
+        }
+    })
+}
 
+fn soln(input: &str) {
     let grid: Vec<Vec<_>> = input.lines()
         .map(|s| s.bytes().map(|b| b == b'#').collect())
         .collect();

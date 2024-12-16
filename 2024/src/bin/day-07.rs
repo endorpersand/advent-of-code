@@ -1,40 +1,39 @@
 fn main() {
     let input = std::fs::read_to_string("inputs/07.txt").unwrap();
-    soln1(&input);
+    soln(&input);
 }
 
 struct Data {
     inputs: Vec<usize>,
     output: usize
 }
-#[allow(dead_code)]
-fn soln1(input: &str) {
-    fn data_possible(data: &Data) -> bool {
-        let mut possible_paths = vec![data.output];
-        for &input in data.inputs.iter().rev() {
-            for output in std::mem::take(&mut possible_paths) {
-                if output % input == 0 { possible_paths.push(output / input); }
-                if let Some(diff) = output.checked_sub(input) { possible_paths.push(diff); }
-            }
+fn data_possible(data: &Data) -> bool {
+    let mut possible_paths = vec![data.output];
+    for &input in data.inputs.iter().rev() {
+        for output in std::mem::take(&mut possible_paths) {
+            if output % input == 0 { possible_paths.push(output / input); }
+            if let Some(diff) = output.checked_sub(input) { possible_paths.push(diff); }
         }
-        
-        possible_paths.into_iter().any(|o| o == 0)
     }
-    fn data_possible2(data: &Data) -> bool {
-        let mut possible_paths = vec![data.output];
-        for &input in data.inputs.iter().rev() {
-            for output in std::mem::take(&mut possible_paths) {
-                if output % input == 0 { possible_paths.push(output / input); }
-                if let Some(diff) = output.checked_sub(input) { possible_paths.push(diff); }
+    
+    possible_paths.into_iter().any(|o| o == 0)
+}
+fn data_possible2(data: &Data) -> bool {
+    let mut possible_paths = vec![data.output];
+    for &input in data.inputs.iter().rev() {
+        for output in std::mem::take(&mut possible_paths) {
+            if output % input == 0 { possible_paths.push(output / input); }
+            if let Some(diff) = output.checked_sub(input) { possible_paths.push(diff); }
 
-                let digits = input.checked_ilog10().unwrap_or(0) + 1;
-                if output % 10usize.pow(digits) == input { possible_paths.push(output / 10usize.pow(digits)); }
-            }
+            let digits = input.checked_ilog10().unwrap_or(0) + 1;
+            if output % 10usize.pow(digits) == input { possible_paths.push(output / 10usize.pow(digits)); }
         }
-        
-        possible_paths.into_iter().any(|o| o == 0)
     }
+    
+    possible_paths.into_iter().any(|o| o == 0)
+}
 
+fn soln(input: &str) {
     let data: Vec<_> = input.lines().map(|line| {
         let (output_str, inputs_str) = line.split_once(": ").unwrap();
         let output = output_str.parse().unwrap();

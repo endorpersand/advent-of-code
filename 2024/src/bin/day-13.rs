@@ -1,6 +1,6 @@
 fn main() {
     let input = std::fs::read_to_string("inputs/13.txt").unwrap();
-    soln1(&input);
+    soln(&input);
 }
 
 #[derive(Debug)]
@@ -47,8 +47,7 @@ fn parse(input: &str) -> Option<Vec<Machine>> {
 
     Some(data)
 }
-#[allow(dead_code)]
-fn soln1(input: &str) {
+fn soln(input: &str) {
     let mut data = parse(input).unwrap();
 
     let p1: isize = data.iter()

@@ -2,7 +2,7 @@
 
 fn main() {
     let input = std::fs::read_to_string("inputs/10.txt").unwrap();
-    soln1(&input);
+    soln(&input);
 }
 
 type Position = (usize, usize);
@@ -19,8 +19,7 @@ fn get_neighbors<T>(grid: &[Vec<T>], (r, c): Position) -> impl Iterator<Item = (
         .filter_map(|(r, c)| Some((r, c, grid.get(r)?.get(c)?)))
 }
 
-#[allow(dead_code)]
-fn soln1(input: &str) {
+fn soln(input: &str) {
     let data: Vec<Vec<_>> = input.lines().map(|s| s.bytes().map(|b| b - b'0').collect()).collect();
 
     let zeroes: Vec<_> = data.iter().enumerate()

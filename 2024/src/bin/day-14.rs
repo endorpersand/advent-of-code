@@ -21,6 +21,7 @@ impl Robot {
         self.position.1 = ((self.position.1 as isize) + (self.velocity.1 * time)).rem_euclid(HEIGHT as isize) as usize;
     }
 }
+
 fn parse(input: &str) -> Vec<Robot> {
     input.lines().filter_map(|s| {
         let (pstr, vstr) = s.strip_prefix("p=")?.split_once(" v=")?;
@@ -33,7 +34,6 @@ fn parse(input: &str) -> Vec<Robot> {
         })
     }).collect()
 }
-#[allow(dead_code)]
 fn part1(input: &str) {
     use std::cmp::Ordering;
 
@@ -54,8 +54,6 @@ fn part1(input: &str) {
     let p1: usize = quadrants.into_iter().product();
     println!("{p1}");
 }
-
-#[allow(dead_code)]
 fn part2(input: &str) {
     let mut robots = parse(input);
     let mut iters = 0;

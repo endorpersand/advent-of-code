@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 fn main() {
     let input = std::fs::read_to_string("inputs/08.txt").unwrap();
-    soln1(&input);
+    soln(&input);
 }
 
 type Position = (usize, usize);
@@ -16,8 +16,7 @@ fn ray_sequence(start: Position, (dr, dc): PosDelta) -> impl Iterator<Item = Pos
 fn in_grid((r, c): Position, n_rows: usize, n_cols: usize) -> bool {
     (0..n_rows).contains(&r) && (0..n_cols).contains(&c)
 }
-#[allow(dead_code)]
-fn soln1(input: &str) {
+fn soln(input: &str) {
     let grid: Vec<Vec<_>> = input.lines()
         .map(|s| s.as_bytes().to_vec())
         .collect();
@@ -33,6 +32,7 @@ fn soln1(input: &str) {
         }
     }
 
+    // p1
     let mut antinodes = HashSet::new();
     for coords in groups.values() {
         for &c1 in coords {
@@ -49,6 +49,7 @@ fn soln1(input: &str) {
     }
     println!("{}", antinodes.len());
 
+    // p2
     let mut antinodes = HashSet::new();
     for coords in groups.values() {
         for &c1 in coords {

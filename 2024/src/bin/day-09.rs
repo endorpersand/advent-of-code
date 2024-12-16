@@ -1,10 +1,9 @@
 fn main() {
     let input = std::fs::read_to_string("inputs/09.txt").unwrap();
-    soln1(&input);
+    soln(&input);
 }
 
-#[allow(dead_code)]
-fn soln1(input: &str) {
+fn soln(input: &str) {
     let mut data: Vec<Option<usize>> = Vec::new();
     for (i, chunk) in input.as_bytes().chunks(2).enumerate() {
         let n = usize::from(chunk[0] - b'0');
