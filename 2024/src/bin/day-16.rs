@@ -41,6 +41,25 @@ impl<T> Grid<T> {
         self.grid.get(r)?.get(c)
     }
 }
+impl Grid<bool> {
+    fn neighbors(&self, (p, d): State) -> impl Iterator<Item=(usize, State)> + '_ {
+        [Direction::North, Direction::East, Direction::South, Direction::West]
+            .into_iter()
+            .map(move |nd| (nd.translate(p), nd)) // generate new state
+            .filter(|&(np, _)| self.get(np).is_some_and(|c| !c)) // only allow moves to empty spot
+            .map(move |st @ (_, nd)| {
+                // compute cost of rotating
+                let cost = match (nd as u8).abs_diff(d as u8) {
+                    0 => 1,
+                    1 => 1001,
+                    2 => 2001,
+                    3 => 1001,
+                    _ => unreachable!()
+                };
+                (cost, st)
+            })
+    }
+}
 struct Data {
     grid: Grid<bool>,
     start: State,
@@ -66,34 +85,20 @@ fn parse(input: &str) -> Data {
 fn part1(input: &str) {
     let Data { grid, start, end } = parse(input);
 
-    let mut dist_map = HashMap::new();
+    let mut visited = HashSet::new();
     let mut pq = BinaryHeap::new();
     let mut result = None;
 
     pq.push((Reverse(0usize), start));
-    while let Some((Reverse(dist), st @ (p, d))) = pq.pop() {
+    while let Some((Reverse(dist), st @ (p, _))) = pq.pop() {
         if p == end {
             result.replace(dist);
             break;
         }
-        if let Entry::Vacant(e) = dist_map.entry(st) {
-            e.insert(dist);
-            
+        if visited.insert(st) {
             pq.extend({
-                [Direction::North, Direction::East, Direction::South, Direction::West]
-                    .into_iter()
-                    .map(|nd| (nd.translate(p), nd))
-                    .filter(|&(np, _)| grid.get(np).is_some_and(|c| !c))
-                    .map(|(np, nd)| {
-                        let w = match (nd as u8).abs_diff(d as u8) {
-                            0 => 1,
-                            1 => 1001,
-                            2 => 2001,
-                            3 => 1001,
-                            _ => unreachable!()
-                        };
-                        (Reverse(dist + w), (np, nd))
-                    })
+                grid.neighbors(st)
+                    .map(|(w, nst)| (Reverse(dist + w), nst))
             });
         }
     }
@@ -106,46 +111,30 @@ fn part2(input: &str) {
 
     let mut dist_map = HashMap::new();
     let mut pq = BinaryHeap::new();
+    let mut end_state = None;
 
     pq.push((Reverse(0usize), start, vec![]));
-    while let Some((Reverse(dist), st @ (p, d), parents)) = pq.pop() {
+    while let Some((Reverse(dist), st @ (p, _), parents)) = pq.pop() {
         match dist_map.entry(st) {
+            Entry::Vacant(e) if p == end => {
+                e.insert((dist, parents));
+                end_state.get_or_insert(st);
+            }
             Entry::Vacant(e) => {
                 e.insert((dist, parents));
-                if p == end { continue; }
-
                 pq.extend({
-                    [Direction::North, Direction::East, Direction::South, Direction::West]
-                        .into_iter()
-                        .map(|nd| (nd.translate(p), nd))
-                        .filter(|&(np, _)| grid.get(np).is_some_and(|c| !c))
-                        .map(|(np, nd)| {
-                            let weight = match (nd as u8).abs_diff(d as u8) {
-                                0 => 1,
-                                1 => 1001,
-                                2 => 2001,
-                                3 => 1001,
-                                _ => unreachable!()
-                            };
-                            (Reverse(dist + weight), (np, nd), vec![st])
-                        })
+                    grid.neighbors(st)
+                        .map(|(w, nst)| (Reverse(dist + w), nst, vec![st]))
                 });
             }
-            Entry::Occupied(mut e) => {
-                assert!(dist >= e.get().0);
-                if dist == e.get().0 {
-                    e.get_mut().1.extend(parents);
-                }
+            Entry::Occupied(mut e) => if dist == e.get().0 {
+                e.get_mut().1.extend(parents);
             }
         }
     }
 
-    let mut visited: HashSet<_> = HashSet::new();
-    let (&end_node, _) = dist_map.iter()
-        .filter(|&(&(p, _), _)| p == end)
-        .min_by_key(|(_, (dist, _))| dist)
-        .unwrap();
-    let mut frontier = VecDeque::from_iter([end_node]);
+    let mut visited = HashSet::new();
+    let mut frontier = VecDeque::from_iter(end_state);
     while let Some(node @ (np, _)) = frontier.pop_front() {
         visited.insert(np);
         if node != start {
