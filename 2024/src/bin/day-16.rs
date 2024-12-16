@@ -1,6 +1,6 @@
 use std::cmp::Reverse;
 use std::collections::hash_map::Entry;
-use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
+use std::collections::{BinaryHeap, HashMap, HashSet};
 
 fn main() {
     let input = std::fs::read_to_string("inputs/16.txt").unwrap();
@@ -134,11 +134,12 @@ fn part2(input: &str) {
     }
 
     let mut visited = HashSet::new();
-    let mut frontier = VecDeque::from_iter(end_state);
-    while let Some(node @ (np, _)) = frontier.pop_front() {
+    let mut frontier = Vec::from_iter(end_state);
+    while let Some(node @ (np, _)) = frontier.pop() {
         visited.insert(np);
-        if node != start {
-            frontier.extend(dist_map.get(&node).map_or(&vec![], |d| &d.1).iter().copied());
+        if node == start { continue; }
+        if let Some((_, parents)) = dist_map.get(&node) {
+            frontier.extend_from_slice(parents);
         }
     }
 
