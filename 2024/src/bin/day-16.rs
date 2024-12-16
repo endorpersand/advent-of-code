@@ -4,13 +4,14 @@ use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
 
 fn main() {
     let input = std::fs::read_to_string("inputs/16.txt").unwrap();
-    // part1(&input);
+    part1(&input);
     part2(&input);
 }
 
 
 type Position = (usize, usize);
 type PosDelta = (isize, isize);
+type State = (Position, Direction);
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 enum Direction {
@@ -24,10 +25,6 @@ impl Direction {
             Direction::South => ( 1,  0),
             Direction::West  => ( 0, -1),
         }
-    }
-
-    fn ray(self, start: Position) -> impl Iterator<Item=Position> {
-        std::iter::successors(Some(self.translate(start)), move |&p| Some(self.translate(p)))
     }
 
     fn translate(self, (r, c): Position) -> Position {
@@ -44,14 +41,13 @@ impl<T> Grid<T> {
         self.grid.get(r)?.get(c)
     }
 }
-struct State {
+struct Data {
     grid: Grid<bool>,
-    start: Position,
-    end: Position,
-    dir: Direction
+    start: State,
+    end: Position
 }
 
-fn parse(input: &str) -> State {
+fn parse(input: &str) -> Data {
     let mut start = None;
     let mut end = None;
 
@@ -65,38 +61,38 @@ fn parse(input: &str) -> State {
         }).collect())
         .collect();
 
-    State { grid: Grid { grid }, start: start.unwrap(), end: end.unwrap(), dir: Direction::East }
+    Data { grid: Grid { grid }, start: (start.unwrap(), Direction::East), end: end.unwrap() }
 }
 fn part1(input: &str) {
-    let State { grid, start, end, dir } = parse(input);
+    let Data { grid, start, end } = parse(input);
 
-    let mut dist = HashMap::new();
+    let mut dist_map = HashMap::new();
     let mut pq = BinaryHeap::new();
     let mut result = None;
 
-    pq.push((Reverse(0usize), start, dir));
-    while let Some((Reverse(d), p, dir)) = pq.pop() {
+    pq.push((Reverse(0usize), start));
+    while let Some((Reverse(dist), st @ (p, d))) = pq.pop() {
         if p == end {
-            result.replace(d);
+            result.replace(dist);
             break;
         }
-        if let Entry::Vacant(e) = dist.entry((p, dir)) {
-            e.insert(d);
+        if let Entry::Vacant(e) = dist_map.entry(st) {
+            e.insert(dist);
             
             pq.extend({
                 [Direction::North, Direction::East, Direction::South, Direction::West]
                     .into_iter()
-                    .map(|nd| (nd, nd.translate(p)))
-                    .filter(|&(_, np)| grid.get(np).is_some_and(|c| !c))
-                    .map(|(nd, np)| {
-                        let weight = match (nd as u8).abs_diff(dir as u8) {
+                    .map(|nd| (nd.translate(p), nd))
+                    .filter(|&(np, _)| grid.get(np).is_some_and(|c| !c))
+                    .map(|(np, nd)| {
+                        let w = match (nd as u8).abs_diff(d as u8) {
                             0 => 1,
                             1 => 1001,
                             2 => 2001,
                             3 => 1001,
                             _ => unreachable!()
                         };
-                        (Reverse(d + weight), np, nd)
+                        (Reverse(dist + w), (np, nd))
                     })
             });
         }
@@ -106,54 +102,54 @@ fn part1(input: &str) {
     println!("{p1}");
 }
 fn part2(input: &str) {
-    let State { grid, start, end, dir } = parse(input);
+    let Data { grid, start, end } = parse(input);
 
-    let mut dist = HashMap::new();
+    let mut dist_map = HashMap::new();
     let mut pq = BinaryHeap::new();
 
-    pq.push((Reverse(0usize), start, dir, vec![]));
-    while let Some((Reverse(d), p, dir, parent)) = pq.pop() {
-        match dist.entry((p, dir)) {
+    pq.push((Reverse(0usize), start, vec![]));
+    while let Some((Reverse(dist), st @ (p, d), parents)) = pq.pop() {
+        match dist_map.entry(st) {
             Entry::Vacant(e) => {
-                e.insert((d, parent));
+                e.insert((dist, parents));
                 if p == end { continue; }
 
                 pq.extend({
                     [Direction::North, Direction::East, Direction::South, Direction::West]
                         .into_iter()
-                        .map(|nd| (nd, nd.translate(p)))
-                        .filter(|&(_, np)| grid.get(np).is_some_and(|c| !c))
-                        .map(|(nd, np)| {
-                            let weight = match (nd as u8).abs_diff(dir as u8) {
+                        .map(|nd| (nd.translate(p), nd))
+                        .filter(|&(np, _)| grid.get(np).is_some_and(|c| !c))
+                        .map(|(np, nd)| {
+                            let weight = match (nd as u8).abs_diff(d as u8) {
                                 0 => 1,
                                 1 => 1001,
                                 2 => 2001,
                                 3 => 1001,
                                 _ => unreachable!()
                             };
-                            (Reverse(d + weight), np, nd, vec![(p, dir)])
+                            (Reverse(dist + weight), (np, nd), vec![st])
                         })
                 });
             }
             Entry::Occupied(mut e) => {
-                assert!(d >= e.get().0);
-                if d == e.get().0 {
-                    e.get_mut().1.extend(parent);
+                assert!(dist >= e.get().0);
+                if dist == e.get().0 {
+                    e.get_mut().1.extend(parents);
                 }
             }
         }
     }
 
     let mut visited: HashSet<_> = HashSet::new();
-    let (&end_node, _) = dist.iter()
+    let (&end_node, _) = dist_map.iter()
         .filter(|&(&(p, _), _)| p == end)
-        .min_by_key(|(_, (d, _))| d)
+        .min_by_key(|(_, (dist, _))| dist)
         .unwrap();
     let mut frontier = VecDeque::from_iter([end_node]);
     while let Some(node @ (np, _)) = frontier.pop_front() {
         visited.insert(np);
-        if np != start {
-            frontier.extend(dist.get(&node).map_or(&vec![], |d| &d.1).iter().copied());
+        if node != start {
+            frontier.extend(dist_map.get(&node).map_or(&vec![], |d| &d.1).iter().copied());
         }
     }
 
