@@ -24,6 +24,17 @@ impl Direction {
         (r.wrapping_add_signed(dr), c.wrapping_add_signed(dc))
     }
 }
+impl From<u8> for Direction {
+    fn from(value: u8) -> Self {
+        match value % 4 {
+            0 => Direction::North,
+            1 => Direction::East,
+            2 => Direction::South,
+            3 => Direction::West,
+            _ => unreachable!()
+        }
+    }
+}
 
 struct Grid<T> {
     grid: Vec<Vec<T>>
@@ -39,21 +50,11 @@ impl<T> Grid<T> {
 }
 impl Grid<bool> {
     fn neighbors(&self, (p, d): State) -> impl Iterator<Item=(usize, State)> + '_ {
-        [Direction::North, Direction::East, Direction::South, Direction::West]
+        [Direction::from((d as u8).wrapping_sub(1)), d, Direction::from((d as u8).wrapping_add(1))]
             .into_iter()
             .map(move |nd| (nd.translate(p), nd)) // generate new state
             .filter(|&(np, _)| self.get(np).is_some_and(|c| !c)) // only allow moves to empty spot
-            .map(move |st @ (_, nd)| {
-                // compute cost of rotating
-                let cost = match (nd as u8).abs_diff(d as u8) {
-                    0 => 1,
-                    1 => 1001,
-                    2 => 2001,
-                    3 => 1001,
-                    _ => unreachable!()
-                };
-                (cost, st)
-            })
+            .map(move |st @ (_, nd)| (1 + usize::from(nd != d) * 1000, st)) // add cost of rotation
     }
 
     fn count_set(&self) -> usize {
@@ -123,6 +124,7 @@ pub fn part2(input: &str) -> usize {
 
     pq.push((Reverse(0usize), start, [None; 4]));
     while let Some((Reverse(dist), st @ (p @ (r, c), d), parents)) = pq.pop() {
+        if end_state.is_some_and(|(ed, _)| dist > ed) { continue; }
         let (old_dist, old_parents) = &mut dist_map.grid[r][c][d as usize];
         match dist.cmp(old_dist) {
             Ordering::Greater => {},
@@ -135,7 +137,7 @@ pub fn part2(input: &str) -> usize {
                 *old_dist = dist;
                 *old_parents = parents;
                 match p == end {
-                    true => { end_state.get_or_insert(st); },
+                    true => { end_state.get_or_insert((dist, st)); },
                     false => pq.extend({
                         grid.neighbors(st)
                             .map(|(w, nst)| (Reverse(dist + w), nst, [Some(st), None, None, None]))
@@ -146,13 +148,15 @@ pub fn part2(input: &str) -> usize {
     }
 
     let mut visited = Grid::new(false, grid.grid.len(), grid.grid[0].len());
-    let mut frontier = Vec::from_iter(end_state);
-    while let Some(node @ ((nr, nc), nd)) = frontier.pop() {
-        visited.grid[nr][nc] = true;
-        if node == start { continue; }
-
-        let (_, parents) = dist_map.grid[nr][nc][nd as usize];
-        frontier.extend(parents.iter().take_while(|s| s.is_some()).flatten());
+    if let Some((_, end_st)) = end_state {
+        let mut frontier = vec![end_st];
+        while let Some(node @ ((nr, nc), nd)) = frontier.pop() {
+            visited.grid[nr][nc] = true;
+            if node == start { continue; }
+    
+            let (_, parents) = dist_map.grid[nr][nc][nd as usize];
+            frontier.extend(parents.iter().take_while(|s| s.is_some()).flatten());
+        }
     }
 
     visited.count_set()
