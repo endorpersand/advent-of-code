@@ -1,6 +1,6 @@
 fn main() {
     let input = std::fs::read_to_string("inputs/17.txt").unwrap();
-    // part1(&input);
+    part1(&input);
     part2(&input);
 }
 
@@ -8,7 +8,7 @@ struct Machine {
     registers: [usize; 3],
     instructions: Vec<u8>,
     pc: usize,
-    output: Vec<usize>
+    output: Vec<u8>
 }
 impl std::fmt::Display for Machine {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -84,7 +84,7 @@ impl Machine {
 
             // The out instruction (opcode 5) calculates the value of its combo operand modulo 8, then outputs that value. (If a program outputs multiple values, they are separated by commas.)
             5 => {
-                self.output.push(self.get_op(op) % 8);
+                self.output.push((self.get_op(op) % 8) as u8);
             },
 
             // The bdv instruction (opcode 6) works exactly like the adv instruction except that the result is stored in the B register. (The numerator is still read from the A register.)
@@ -107,7 +107,11 @@ impl Machine {
         let [instr, op] = self.instructions[self.pc ..= self.pc+1] else { panic!() };
         self.pc += 2;
         self.run_instr(instr, op);
-        // println!("{self}");
+    }
+    fn reset(&mut self) {
+        self.registers.fill(0);
+        self.pc = 0;
+        self.output.clear();
     }
     fn run(&mut self) {
         while self.pc < self.instructions.len() {
@@ -171,9 +175,7 @@ fn part2(input: &str) {
     // out B % 8;
     // jmp;
     
-    // machine.registers[0] = fold(&[2, 4, 1, 2, 7, 5, 4, 3, 0, 3, 1, 7, 5, 5, 3, 0]);
-    // machine.run();
-    // println!("{machine}");
+    // ^ Note that this only works on one input, and no others.
 
     let base = machine.instructions.clone();
     let mut accum = vec![];
@@ -187,25 +189,18 @@ fn part2(input: &str) {
 
             match options.next() {
                 Some(nn) => {
+                    // Push one of the options, and the rest to frontier (for later)
                     accum.push(nn as u8);
-                    // println!("{i}, {accum:?}");
-
-                    for o in options {
-                        println!("option {o} > {nn}");
-                        if o > nn {
-                            frontier.push((i, o));
-                        }
-                    }
+                    options.filter(|&o| o > nn)
+                        .for_each(|o| { frontier.push((i, o)); });
                 },
                 None => {
-                    // panic!();
-                    // No option, go back to frontier
-                    println!("old: {accum:?}");
-                    // println!("{frontier:?}");
+                    // We hit a dead end, so return to one of the frontier options
                     let Some((oi, on)) = frontier.pop() else { break 'outer };
+
                     accum.truncate(oi);
                     accum.push(on as u8);
-                    println!("new: {accum:?} ({oi}, {on})");
+
                     i = oi + 1;
                     continue 'outer;
                 },
@@ -213,22 +208,23 @@ fn part2(input: &str) {
             i += 1;
         }
 
+        machine.reset();
         machine.registers[0] = fold(&accum);
         machine.run();
-        if !machine.output.iter().copied().eq(machine.instructions.iter().copied().map(usize::from)) {
+        if machine.output != machine.instructions {
             let Some((oi, on)) = frontier.pop() else { break 'outer };
             accum.truncate(oi);
             accum.push(on as u8);
             i = oi;
             continue 'outer;
         }
-        println!("{accum:?}");
         break;
     }
 
+    machine.reset();
     machine.registers[0] = fold(&accum);
     machine.run();
-    assert!(machine.output.iter().copied().eq(machine.instructions.iter().copied().map(usize::from)));
+    assert_eq!(machine.output, machine.instructions);
     println!("{}", fold(&accum));
     // println!("{base:?}");
 }
