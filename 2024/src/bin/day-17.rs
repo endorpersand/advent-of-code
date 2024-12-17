@@ -26,10 +26,9 @@ impl std::fmt::Display for Machine {
                 let &[ins, op] = chunk else { unreachable!() };
                 write!(f, "{} ", INSTRS[usize::from(ins)])?;
                 match [1, 3].contains(&ins) {
-                    true => write!(f, "{op}"),
-                    false => write!(f, "{}", COMBOS[usize::from(op)])
-                }?;
-                writeln!(f)
+                    true => writeln!(f, "{op}"),
+                    false => writeln!(f, "{}", COMBOS[usize::from(op)])
+                }
             })?;
         writeln!(f)?;
         writeln!(f, "Output: {:?}", self.output)
