@@ -150,7 +150,8 @@ fn part2(input: &str) {
     // out B % 8;
     // jnz;
     
-    // ^ Note that this only works on one input, and no others.
+    let x0 = usize::from(machine.instructions[3]);
+    let x1 = usize::from(machine.instructions[11]);
 
     let mut accum = vec![];
     let mut frontier = vec![];
@@ -177,7 +178,7 @@ fn part2(input: &str) {
         let n = machine.instructions[machine.instructions.len() - 1 - accum.len()];
         let folded = fold(&accum);
         let mut options = (0..8)
-            .filter(|i| (i ^ 5 ^ ((folded << 3 | i) >> (i ^ 2))) % 8 == usize::from(n));
+            .filter(|i| (i ^ x0 ^ x1 ^ ((folded << 3 | i) >> (i ^ x0))) % 8 == usize::from(n));
 
         match options.next() {
             Some(nn) => {
