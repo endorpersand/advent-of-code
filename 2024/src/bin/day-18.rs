@@ -1,4 +1,4 @@
-use std::collections::{HashSet, VecDeque};
+use std::collections::VecDeque;
 
 fn main() {
     let input = std::fs::read_to_string("inputs/18.txt").unwrap();
@@ -12,7 +12,7 @@ const START: Position = (0, 0);
 const END: Position = (GRID_SIZE - 1, GRID_SIZE - 1);
 
 fn bfs(grid: &[[bool; GRID_SIZE]], start: Position, end: Position) -> Option<usize> {
-    let mut visited: HashSet<_> = HashSet::from_iter([start]);
+    let mut visited = vec![[false; GRID_SIZE]; GRID_SIZE];
     let mut frontier = VecDeque::from_iter([(start, 0)]);
 
     while let Some((pos @ (x, y), dist)) = frontier.pop_front() {
@@ -24,7 +24,7 @@ fn bfs(grid: &[[bool; GRID_SIZE]], start: Position, end: Position) -> Option<usi
             [(-1, 0), (0, 1), (1, 0), (0, -1)].into_iter()
                 .map(move |(dx, dy)| (x.wrapping_add_signed(dx), y.wrapping_add_signed(dy)))
                 .filter(|&(x, y)| grid.get(x).and_then(|r| r.get(y)).is_some_and(|c| !c))
-                .filter(|&p| visited.insert(p))
+                .filter(|&(x, y)| !std::mem::replace(&mut visited[x][y], true))
                 .map(|p| (p, dist + 1))
         })
     }
@@ -37,19 +37,16 @@ fn soln(input: &str) {
         .map(|s| s.split_once(',').unwrap())
         .map(|(xs, ys)| (xs.parse().unwrap(), ys.parse().unwrap()))
         .collect();
-    let (left, right) = positions.split_at(CORRUPT_COUNT);
 
     let mut grid = vec![[false; GRID_SIZE]; GRID_SIZE];
-    left.iter().for_each(|&(x, y)| grid[x][y] = true);
+    positions[..CORRUPT_COUNT].iter().for_each(|&(x, y)| grid[x][y] = true);
 
     // part 1
     println!("{}", bfs(&grid, START, END).unwrap());
 
     // part 2
-    println!("{:?}", {
-        right.iter().find(|&&(x, y)| {
-            grid[x][y] = true;
-            bfs(&grid, START, END).is_none()
-        }).unwrap()
-    });
+    println!("{:?}", positions[CORRUPT_COUNT..].iter().find(|&&(x, y)| {
+        grid[x][y] = true;
+        bfs(&grid, START, END).is_none()
+    }).unwrap());
 }
