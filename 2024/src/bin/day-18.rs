@@ -11,33 +11,25 @@ const CORRUPT_COUNT: usize = 1024;
 const START: Position = (0, 0);
 const END: Position = (GRID_SIZE - 1, GRID_SIZE - 1);
 
-struct Grid<T> {
-    grid: Vec<[T; GRID_SIZE]>
-}
-impl Grid<bool> {
-    fn set(&mut self, (x, y): Position) {
-        self.grid[x][y] = true;
-    }
-    fn bfs(&self, start: Position, end: Position) -> Option<usize> {
-        let mut visited: HashSet<_> = HashSet::from_iter([start]);
-        let mut frontier = VecDeque::from_iter([(start, 0)]);
-    
-        while let Some((pos @ (x, y), dist)) = frontier.pop_front() {
-            if pos == end {
-                return Some(dist);
-            }
-    
-            frontier.extend({
-                [(-1, 0), (0, 1), (1, 0), (0, -1)].into_iter()
-                    .map(move |(dx, dy)| (x.wrapping_add_signed(dx), y.wrapping_add_signed(dy)))
-                    .filter(|&(x, y)| self.grid.get(x).and_then(|r| r.get(y)).is_some_and(|c| !c))
-                    .filter(|&p| visited.insert(p))
-                    .map(|p| (p, dist + 1))
-            })
+fn bfs(grid: &[[bool; GRID_SIZE]], start: Position, end: Position) -> Option<usize> {
+    let mut visited: HashSet<_> = HashSet::from_iter([start]);
+    let mut frontier = VecDeque::from_iter([(start, 0)]);
+
+    while let Some((pos @ (x, y), dist)) = frontier.pop_front() {
+        if pos == end {
+            return Some(dist);
         }
-    
-        None
+
+        frontier.extend({
+            [(-1, 0), (0, 1), (1, 0), (0, -1)].into_iter()
+                .map(move |(dx, dy)| (x.wrapping_add_signed(dx), y.wrapping_add_signed(dy)))
+                .filter(|&(x, y)| grid.get(x).and_then(|r| r.get(y)).is_some_and(|c| !c))
+                .filter(|&p| visited.insert(p))
+                .map(|p| (p, dist + 1))
+        })
     }
+
+    None
 }
 
 fn soln(input: &str) {
@@ -47,20 +39,17 @@ fn soln(input: &str) {
         .collect();
     let (left, right) = positions.split_at(CORRUPT_COUNT);
 
-    let mut grid = Grid { grid: vec![[false; GRID_SIZE]; GRID_SIZE] };
-    for &p in left {
-        grid.set(p);
-    }
+    let mut grid = vec![[false; GRID_SIZE]; GRID_SIZE];
+    left.iter().for_each(|&(x, y)| grid[x][y] = true);
 
     // part 1
-    let p1 = grid.bfs(START, END).unwrap();
-    println!("{p1}");
+    println!("{}", bfs(&grid, START, END).unwrap());
 
     // part 2
-    let &p2 = right.iter()
-        .find(|&&p| {
-            grid.set(p);
-            grid.bfs(START, END).is_none()
-        }).unwrap();
-    println!("{p2:?}");
+    println!("{:?}", {
+        right.iter().find(|&&(x, y)| {
+            grid[x][y] = true;
+            bfs(&grid, START, END).is_none()
+        }).unwrap()
+    });
 }
