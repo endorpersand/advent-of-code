@@ -36,13 +36,12 @@ fn ring(n: usize) -> impl Iterator<Item=PosDelta> {
 }
 /// Takes a list of positions (sorted by distance from start) 
 /// and produces an iterator of time saved.
-fn cheat_iter<'a>(spaces: &'a [Position], rev_spaces: &'a Grid<usize>, n: usize) -> impl Iterator<Item=usize> + 'a {
+fn cheat_iter<'a>(spaces: &'a [Position], rev_spaces: &'a Grid<isize>, n: usize) -> impl Iterator<Item=usize> + 'a {
     spaces.iter().enumerate()
         .flat_map(move |(i, &pi)| {
             ring(n).map(move |d| translate(pi, d))
-                .filter_map(|np| rev_spaces.get(np).filter(|&&v| v != usize::MAX).copied())
-                .filter(move |&j| i <= j)
-                .map(move |j| j - i - n)
+                .filter_map(move |np| rev_spaces.get(np).filter(|&&v| v > i as isize))
+                .map(move |&j| j as usize - i - n)
         })
 }
 
@@ -54,24 +53,24 @@ fn parse(input: &str) -> (ByteGrid<'_>, Position, Position) {
 
     (ByteGrid { buf: input.as_bytes() }, start, end)
 }
-fn path(grid: &ByteGrid<'_>, start: Position, end: Position) -> (Vec<Position>, Grid<usize>) {
+fn path(grid: &ByteGrid<'_>, start: Position, end: Position) -> (Vec<Position>, Grid<isize>) {
     let mut spaces = vec![start];
-    let mut rev_spaces = Grid { grid: vec![[usize::MAX; N]; grid.height()] };
+    let mut rev_spaces = Grid { grid: vec![[-1; N]; grid.height()] };
     rev_spaces.grid[start.0][start.1] = 0;
 
-    let mut penult = None;
+    let mut penult = (usize::MAX, usize::MAX);
     let mut last = start;
     while last != end {
         let next = [(0, 1), (1, 0), (0, -1), (-1, 0)]
             .into_iter()
             .map(|d| translate(last, d))
-            .filter(|&p| penult.is_none_or(|q| p != q))
+            .filter(|&p| p != penult)
             .find(|&p| grid.get(p).is_some_and(|w| w != b'#'))
             .unwrap();
 
         spaces.push(next);
-        rev_spaces.grid[next.0][next.1] = spaces.len() - 1;
-        (penult, last) = (Some(last), next);
+        rev_spaces.grid[next.0][next.1] = (spaces.len() - 1) as isize;
+        (penult, last) = (last, next);
     }
 
     (spaces, rev_spaces)
