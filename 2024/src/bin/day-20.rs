@@ -28,7 +28,7 @@ fn cheat_iter(spaces: &[Position]) -> impl Iterator<Item=(usize, usize, usize, u
     spaces.iter().enumerate().flat_map(|(i, &pi)| {
         std::iter::zip((i + 1).., &spaces[(i + 1)..]).map(move |(j, &pj)| {
             let dist = manhattan(pi, pj);
-            let time = j.saturating_sub(i).saturating_sub(dist);
+            let time = j - i - dist;
             (i, j, dist, time)
         })
     })
