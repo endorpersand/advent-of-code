@@ -95,7 +95,7 @@ pub fn part2(input: &str) -> usize {
 #[cfg(test)]
 mod test {
     #[test]
-    fn d16_correct() {
+    fn d20_correct() {
         let input = std::fs::read_to_string("inputs/20.txt").unwrap();
         assert_eq!(super::part1(&input), 1384);
         assert_eq!(super::part2(&input), 1008542);
