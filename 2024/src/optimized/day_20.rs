@@ -1,9 +1,24 @@
 type Position = (usize, usize);
 type PosDelta = (isize, isize);
 
+const N: usize = 141;
+struct ByteGrid<'a> {
+    buf: &'a [u8]
+}
+impl ByteGrid<'_> {
+    fn height(&self) -> usize {
+        self.buf.len() % (N + 1)
+    }
+    fn get(&self, (r, c): Position) -> Option<u8> {
+        ((0..N).contains(&r) && (0..self.height()).contains(&c))
+            .then(|| self.buf.get(r.wrapping_mul(N + 1).wrapping_add(c)))?
+            .copied()
+    }
+}
+
 #[derive(Debug)]
 struct Grid<T> {
-    grid: Vec<Vec<T>>
+    grid: Vec<[T; N]>
 }
 impl<T> Grid<T> {
     fn get(&self, (r, c): Position) -> Option<&T> {
@@ -31,26 +46,17 @@ fn cheat_iter<'a>(spaces: &'a [Position], rev_spaces: &'a Grid<usize>, n: usize)
         })
 }
 
-fn parse(input: &str) -> (Grid<bool>, Position, Position) {
-    let mut start = (0, 0);
-    let mut end = (0, 0);
-    
-    let grid = input.lines().enumerate()
-        .map(|(r, l)| l.bytes().enumerate().map(|(c, b)| match b {
-            b'#' => true,
-            b'.' => false,
-            b'S' => { start = (r, c); false },
-            b'E' => { end = (r, c); false },
-            b => unreachable!("{}", char::from(b))
-        }).collect())
-    .collect();
+fn parse(input: &str) -> (ByteGrid<'_>, Position, Position) {
+    let si = input.bytes().position(|b| b == b'S').unwrap();
+    let start = (si / (N + 1), si % (N + 1));
+    let ei = input.bytes().position(|b| b == b'E').unwrap();
+    let end = (ei / (N + 1), ei % (N + 1));
 
-    (Grid { grid }, start, end)
+    (ByteGrid { buf: input.as_bytes() }, start, end)
 }
-fn path(grid: &Grid<bool>, start: Position, end: Position) -> (Vec<Position>, Grid<usize>) {
+fn path(grid: &ByteGrid<'_>, start: Position, end: Position) -> (Vec<Position>, Grid<usize>) {
     let mut spaces = vec![start];
-    
-    let mut rev_spaces = Grid { grid: vec![vec![usize::MAX; grid.grid[0].len()]; grid.grid.len()] };
+    let mut rev_spaces = Grid { grid: vec![[usize::MAX; N]; grid.height()] };
     rev_spaces.grid[start.0][start.1] = 0;
 
     let mut penult = None;
@@ -60,7 +66,7 @@ fn path(grid: &Grid<bool>, start: Position, end: Position) -> (Vec<Position>, Gr
             .into_iter()
             .map(|d| translate(last, d))
             .filter(|&p| penult.is_none_or(|q| p != q))
-            .find(|&p| grid.get(p).is_some_and(|&w| !w))
+            .find(|&p| grid.get(p).is_some_and(|w| w != b'#'))
             .unwrap();
 
         spaces.push(next);
@@ -82,11 +88,9 @@ pub fn part2(input: &str) -> usize {
     let (grid, start, end) = parse(input);
     let (spaces, rev_spaces) = path(&grid, start, end);
 
-    (2..=20).map(|n| {
-        cheat_iter(&spaces, &rev_spaces, n)
-            .filter(|&t| t >= 100) // limit distance, saves at least 100 ps of time
-            .count()
-    }).sum()
+    (2..=20).flat_map(|n| cheat_iter(&spaces, &rev_spaces, n))
+        .filter(|&t| t >= 100) // limit distance, saves at least 100 ps of time
+        .count()
 }
 
 #[cfg(test)]
