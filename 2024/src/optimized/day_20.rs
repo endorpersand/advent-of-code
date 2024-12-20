@@ -14,19 +14,21 @@ impl<T> Grid<T> {
 fn translate((r, c): Position, (dr, dc): PosDelta) -> Position {
     (r.wrapping_add_signed(dr), c.wrapping_add_signed(dc))
 }
-fn manhattan((r0, c0): Position, (r1, c1): Position) -> usize {
-    r1.abs_diff(r0) + c1.abs_diff(c0)
+
+fn ring(n: usize) -> impl Iterator<Item=PosDelta> {
+    let n = n as isize;
+    (0..n).flat_map(move |i| [(i, n - i), (n - i, -i), (-i, -n + i), (-n + i, i)])
 }
 /// Takes a list of positions (sorted by distance from start) 
-/// and produces an iterator of (point 0, point 1, manhattan distance between points, time saved) tuples.
-fn cheat_iter(spaces: &[Position]) -> impl Iterator<Item=(usize, usize, usize, usize)> + '_ {
-    spaces.iter().enumerate().flat_map(|(i, &pi)| {
-        std::iter::zip((i + 1).., &spaces[(i + 1)..]).map(move |(j, &pj)| {
-            let dist = manhattan(pi, pj);
-            let time = j - i - dist;
-            (i, j, dist, time)
+/// and produces an iterator of time saved.
+fn cheat_iter<'a>(spaces: &'a [Position], rev_spaces: &'a Grid<usize>, n: usize) -> impl Iterator<Item=usize> + 'a {
+    spaces.iter().enumerate()
+        .flat_map(move |(i, &pi)| {
+            ring(n).map(move |d| translate(pi, d))
+                .filter_map(|np| rev_spaces.get(np).filter(|&&v| v != usize::MAX).copied())
+                .filter(move |&j| i <= j)
+                .map(move |j| j - i - n)
         })
-    })
 }
 
 fn parse(input: &str) -> (Grid<bool>, Position, Position) {
@@ -45,11 +47,15 @@ fn parse(input: &str) -> (Grid<bool>, Position, Position) {
 
     (Grid { grid }, start, end)
 }
-fn path(grid: &Grid<bool>, start: Position, end: Position) -> Vec<Position> {
+fn path(grid: &Grid<bool>, start: Position, end: Position) -> (Vec<Position>, Grid<usize>) {
     let mut spaces = vec![start];
+    
+    let mut rev_spaces = Grid { grid: vec![vec![usize::MAX; grid.grid[0].len()]; grid.grid.len()] };
+    rev_spaces.grid[start.0][start.1] = 0;
+
     let mut penult = None;
     let mut last = start;
-    while spaces.last() != Some(&end) {
+    while last != end {
         let next = [(0, 1), (1, 0), (0, -1), (-1, 0)]
             .into_iter()
             .map(|d| translate(last, d))
@@ -58,25 +64,29 @@ fn path(grid: &Grid<bool>, start: Position, end: Position) -> Vec<Position> {
             .unwrap();
 
         spaces.push(next);
+        rev_spaces.grid[next.0][next.1] = spaces.len() - 1;
         (penult, last) = (Some(last), next);
     }
-    spaces
+
+    (spaces, rev_spaces)
 }
 pub fn part1(input: &str) -> usize {
     let (grid, start, end) = parse(input);
-    let spaces = path(&grid, start, end);
+    let (spaces, rev_spaces) = path(&grid, start, end);
 
-    cheat_iter(&spaces)
-        .filter(|&(_, _, d, t)| d == 2 && t >= 100) // limit distance, saves at least 100 ps of time
+    cheat_iter(&spaces, &rev_spaces, 2)
+        .filter(|&t| t >= 100) // limit distance, saves at least 100 ps of time
         .count()
 }
 pub fn part2(input: &str) -> usize {
     let (grid, start, end) = parse(input);
-    let spaces = path(&grid, start, end);
+    let (spaces, rev_spaces) = path(&grid, start, end);
 
-    cheat_iter(&spaces)
-        .filter(|&(_, _, d, t)| d <= 20 && t >= 100) // limit distance, saves at least 100 ps of time
-        .count()
+    (2..=20).map(|n| {
+        cheat_iter(&spaces, &rev_spaces, n)
+            .filter(|&t| t >= 100) // limit distance, saves at least 100 ps of time
+            .count()
+    }).sum()
 }
 
 #[cfg(test)]
