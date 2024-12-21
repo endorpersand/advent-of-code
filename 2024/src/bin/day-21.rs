@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 fn main() {
     let input = std::fs::read_to_string("inputs/21.txt").unwrap();
@@ -6,7 +6,7 @@ fn main() {
 }
 
 type Position = (usize, usize);
-type Path2Lut = HashMap<[u8; 2], Vec<Vec<u8>>>;
+type EdgeMap = HashMap<[u8; 2], Vec<Vec<u8>>>;
 type Cache = HashMap<Vec<u8>, HashMap<usize, usize>>;
 
 #[derive(Clone, Copy)]
@@ -49,35 +49,34 @@ impl<const N: usize> Pad<N> {
             false => std::iter::repeat_n(b'<', lc - rc),
         };
         
+        let crit = || col_iter.clone().chain(row_iter.clone()).chain(*b"A").collect();
+        let rcit = || row_iter.clone().chain(col_iter.clone()).chain(*b"A").collect();
         match (lc == nc && rr == nr, lr == nr && rc == nc) {
-            (true, false) => vec![col_iter.chain(row_iter).chain(*b"A").collect()],
-            (false, true) => vec![row_iter.chain(col_iter).chain(*b"A").collect()],
-            _ => vec![row_iter.clone().chain(col_iter.clone()).chain(*b"A").collect(), col_iter.clone().chain(row_iter.clone()).chain(*b"A").collect()]
+            (true, false) => vec![crit()],
+            (false, true) => vec![rcit()],
+            _ if lr == rr || lc == rc => vec![crit()],
+            _ => vec![rcit(), crit()]
         }
     }
 
-    fn compute(&self, string: &[u8]) -> HashSet<Vec<u8>> {
-        let mut astring = b"A".to_vec();
-        astring.extend_from_slice(string);
-
-        astring.windows(2)
+    fn compute(&self, string: &[u8]) -> Vec<Vec<u8>> {
+        [b"A", string]
+            .concat()
+            .windows(2)
             .flat_map(<[_; 2]>::try_from)
             .map(|[l, r]| self.path(l, r))
-            .fold(HashSet::from_iter([vec![]]), |mut acc, options| {
-                let strings = std::mem::take(&mut acc);
-                for right in options {
-                    acc.extend({
-                        strings.clone().into_iter()
-                            .map(|mut s| {s.extend(right.clone()); s})
-                    });
-                }
-
-                acc
+            .fold(vec![vec![]], |acc, options| {
+                acc.into_iter().flat_map(|left| {
+                    options.iter().map(move |right| {
+                        [left.as_slice(), right.as_slice()].concat()
+                    })
+                })
+                .collect()
             })
     }
 }
 
-fn count_dir(string: &[u8], n: usize, path2_map: &Path2Lut, cache: &mut Cache) -> usize {
+fn count_dir(string: &[u8], n: usize, edge_map: &EdgeMap, cache: &mut Cache) -> usize {
     if n == 0 { return string.len(); }
     if let Some(map) = cache.get(string) {
         if let Some(&count) = map.get(&n) {
@@ -85,14 +84,13 @@ fn count_dir(string: &[u8], n: usize, path2_map: &Path2Lut, cache: &mut Cache) -
         }
     }
 
-    let mut astring = b"A".to_vec();
-    astring.extend_from_slice(string);
-
-    let result = astring.windows(2)
+    let result = [b"A", string]
+        .concat()
+        .windows(2)
         .flat_map(<[_; 2]>::try_from)
         .map(|key| {
-            path2_map[&key].iter()
-                .map(|s| count_dir(s, n - 1, path2_map, cache))
+            edge_map[&key].iter()
+                .map(|s| count_dir(s, n - 1, edge_map, cache))
                 .min()
                 .unwrap()
         })
@@ -105,7 +103,7 @@ fn count_dir(string: &[u8], n: usize, path2_map: &Path2Lut, cache: &mut Cache) -
         .get()
 }
 
-fn count(string: &[u8], n: usize, path2_map: &Path2Lut, cache: &mut Cache) -> usize {
+fn count(string: &[u8], n: usize, path2_map: &EdgeMap, cache: &mut Cache) -> usize {
     NUMPAD.compute(string).into_iter()
         .map(|s| count_dir(&s, n, path2_map, cache))
         .min()
@@ -116,7 +114,7 @@ fn soln(input: &str) {
     let seqs: Vec<_> = input.lines()
         .map(|s| (s[..3].parse().unwrap(), s.as_bytes()))
         .collect();
-    let path2_map: Path2Lut = {
+    let path2_map: EdgeMap = {
         let flat = DIRPAD.grid.as_flattened();
 
         HashMap::from_iter({
