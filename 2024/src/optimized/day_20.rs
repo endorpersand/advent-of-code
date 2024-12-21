@@ -55,25 +55,30 @@ fn parse(input: &str) -> (ByteGrid<'_>, Position, Position) {
     (ByteGrid { buf: input.as_bytes() }, start, end)
 }
 fn path(grid: &ByteGrid<'_>, start: Position, end: Position) -> (Vec<Position>, Grid<isize>) {
-    let mut spaces = vec![start];
-    let mut rev_spaces = Grid { grid: vec![[-1; N]; grid.height()] };
-    rev_spaces.grid[start.0][start.1] = 0;
-
-    let mut penult = (usize::MAX, usize::MAX);
-    let mut last = start;
-    while last != end {
-        let next = [(0, 1), (1, 0), (0, -1), (-1, 0)]
-            .into_iter()
-            .map(|d| translate(last, d))
-            .filter(|&p| p != penult)
-            .find(|&p| grid.get(p).is_some_and(|w| w != b'#'))
-            .unwrap();
-
-        spaces.push(next);
-        rev_spaces.grid[next.0][next.1] = (spaces.len() - 1) as isize;
-        (penult, last) = (last, next);
+    /// Finds the next tile to traverse from `last` (and the direction to move).
+    fn find_next(deltas: impl IntoIterator<Item=PosDelta>, grid: &ByteGrid<'_>, last: Position) -> (PosDelta, Position) {
+        deltas.into_iter()
+            .map(|d| (d, translate(last, d)))
+            .find(|&(_, p)| grid.get(p).is_some_and(|w| w != b'#'))
+            .unwrap()
     }
 
+    // Compute the second node (and first direction of movement):
+    let mut spaces = vec![start];
+    let (mut dir, mut last) = find_next([(0, 1), (1, 0), (0, -1), (-1, 0)], grid, start);
+    spaces.push(last);
+    while last != end {
+        let (dr, dc) = dir;
+        let next @ (_, np) = find_next([dir, (dc, dr), (-dc, -dr)], grid, last);
+        
+        spaces.push(np);
+        (dir, last) = next;
+    }
+
+    let mut rev_spaces = Grid { grid: vec![[-1; N]; grid.height()] };
+    for (i, &(r, c)) in spaces.iter().enumerate() {
+        rev_spaces.grid[r][c] = i as isize;
+    }
     (spaces, rev_spaces)
 }
 pub fn part1(input: &str) -> usize {
