@@ -30,18 +30,19 @@ fn translate((r, c): Position, (dr, dc): PosDelta) -> Position {
     (r.wrapping_add_signed(dr), c.wrapping_add_signed(dc))
 }
 
-fn ring(n: usize) -> impl Iterator<Item=PosDelta> {
+fn half_ring(n: usize) -> impl Iterator<Item=PosDelta> {
     let n = n as isize;
-    (0..n).flat_map(move |i| [(i, n - i), (n - i, -i), (-i, -n + i), (-n + i, i)])
+    (0..n).flat_map(move |i| [(i, n - i), (n - i, -i)])
 }
 /// Takes a list of positions (sorted by distance from start) 
 /// and produces an iterator of time saved.
 fn cheat_iter<'a>(spaces: &'a [Position], rev_spaces: &'a Grid<isize>, n: usize) -> impl Iterator<Item=usize> + 'a {
     spaces.iter().enumerate()
         .flat_map(move |(i, &pi)| {
-            ring(n).map(move |d| translate(pi, d))
-                .filter_map(move |np| rev_spaces.get(np).filter(|&&v| v > i as isize))
-                .map(move |&j| j as usize - i - n)
+            half_ring(n)
+                .map(move |d| translate(pi, d))
+                .filter_map(|np| rev_spaces.get(np).filter(|&&v| !v.is_negative()))
+                .map(move |&j| i.abs_diff(j as usize) - n)
         })
 }
 
