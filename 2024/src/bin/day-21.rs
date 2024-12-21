@@ -1,5 +1,4 @@
-#![recursion_limit = "256"]
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 fn main() {
     let input = std::fs::read_to_string("inputs/21.txt").unwrap();
@@ -7,6 +6,8 @@ fn main() {
 }
 
 type Position = (usize, usize);
+type Path2Lut = HashMap<[u8; 2], Vec<Vec<u8>>>;
+type Cache = HashMap<Vec<u8>, HashMap<usize, usize>>;
 
 #[derive(Clone, Copy)]
 struct Pad<const N: usize> {
@@ -34,32 +35,34 @@ impl<const N: usize> Pad<N> {
             .map(|p| (p / 3, p % 3))
     }
 
+    fn path(&self, l: u8, r: u8) -> Vec<Vec<u8>> {
+        let (lr, lc) = self.find(l).unwrap();
+        let (rr, rc) = self.find(r).unwrap();
+        let (nr, nc) = self.find(0).unwrap();
+
+        let row_iter = match lr <= rr {
+            true  => std::iter::repeat_n(b'v', rr - lr),
+            false => std::iter::repeat_n(b'^', lr - rr),
+        };
+        let col_iter = match lc <= rc {
+            true  => std::iter::repeat_n(b'>', rc - lc),
+            false => std::iter::repeat_n(b'<', lc - rc),
+        };
+        
+        match (lc == nc && rr == nr, lr == nr && rc == nc) {
+            (true, false) => vec![col_iter.chain(row_iter).chain(*b"A").collect()],
+            (false, true) => vec![row_iter.chain(col_iter).chain(*b"A").collect()],
+            _ => vec![row_iter.clone().chain(col_iter.clone()).chain(*b"A").collect(), col_iter.clone().chain(row_iter.clone()).chain(*b"A").collect()]
+        }
+    }
+
     fn compute(&self, string: &[u8]) -> HashSet<Vec<u8>> {
         let mut astring = b"A".to_vec();
         astring.extend_from_slice(string);
 
         astring.windows(2)
             .flat_map(<[_; 2]>::try_from)
-            .map(|[l, r]| {
-                let (lr, lc) = self.find(l).unwrap();
-                let (rr, rc) = self.find(r).unwrap();
-                let (nr, nc) = self.find(0).unwrap();
-
-                let row_iter = match lr <= rr {
-                    true  => std::iter::repeat_n(b'v', rr - lr),
-                    false => std::iter::repeat_n(b'^', lr - rr),
-                };
-                let col_iter = match lc <= rc {
-                    true  => std::iter::repeat_n(b'>', rc - lc),
-                    false => std::iter::repeat_n(b'<', lc - rc),
-                };
-                
-                match (lc == nc && rr == nr, lr == nr && rc == nc) {
-                    (true, false) => vec![col_iter.chain(row_iter).chain(*b"A")],
-                    (false, true) => vec![row_iter.chain(col_iter).chain(*b"A")],
-                    _ => vec![row_iter.clone().chain(col_iter.clone()).chain(*b"A"), col_iter.clone().chain(row_iter.clone()).chain(*b"A")]
-                }
-            })
+            .map(|[l, r]| self.path(l, r))
             .fold(HashSet::from_iter([vec![]]), |mut acc, options| {
                 let strings = std::mem::take(&mut acc);
                 for right in options {
@@ -74,23 +77,62 @@ impl<const N: usize> Pad<N> {
     }
 }
 
-fn compute3(string: &[u8]) -> Vec<u8> {
+fn count_dir(string: &[u8], n: usize, path2_map: &Path2Lut, cache: &mut Cache) -> usize {
+    if n == 0 { return string.len(); }
+    if let Some(map) = cache.get(string) {
+        if let Some(&count) = map.get(&n) {
+            return count;
+        }
+    }
+
+    let mut astring = b"A".to_vec();
+    astring.extend_from_slice(string);
+
+    let result = astring.windows(2)
+        .flat_map(<[_; 2]>::try_from)
+        .map(|key| {
+            path2_map[&key].iter()
+                .map(|s| count_dir(s, n - 1, path2_map, cache))
+                .min()
+                .unwrap()
+        })
+        .sum();
+
+    *cache.entry(string.to_vec())
+        .or_default()
+        .entry(n)
+        .insert_entry(result)
+        .get()
+}
+
+fn count(string: &[u8], n: usize, path2_map: &Path2Lut, cache: &mut Cache) -> usize {
     NUMPAD.compute(string).into_iter()
-        .flat_map(|p| DIRPAD.compute(&p).into_iter())
-        .flat_map(|p| DIRPAD.compute(&p).into_iter())
-        .min_by_key(Vec::len)
+        .map(|s| count_dir(&s, n, path2_map, cache))
+        .min()
         .unwrap()
 }
 
 fn soln(input: &str) {
-    let items: usize = input.lines()
-        .map(|l| dbg!(l[..3].parse::<usize>().unwrap(), compute3(l.as_bytes()).len()))
-        .map(|(a, b)| a * b)
-        .sum();
-    // let items: usize = input.lines()
-    //     .map(|l| dbg!(l[..3].parse::<usize>().unwrap(), compute25(l.as_bytes()).len()))
-    //     .map(|(a, b)| a * b)
-    //     .sum();
+    let seqs: Vec<_> = input.lines()
+        .map(|s| (s[..3].parse().unwrap(), s.as_bytes()))
+        .collect();
+    let path2_map: Path2Lut = {
+        let flat = DIRPAD.grid.as_flattened();
 
-    println!("{items}");
+        HashMap::from_iter({
+            flat.iter()
+                .flat_map(|&l| flat.iter().map(move |&r| ([l, r], DIRPAD.path(l, r))))
+        })
+    };
+    let mut cache: Cache = HashMap::new();
+
+    let p1: usize = seqs.iter()
+        .map(|(n, s)| n * count(s, 2, &path2_map, &mut cache))
+        .sum();
+    println!("{p1}");
+    
+    let p2: usize = seqs.iter()
+        .map(|(n, s)| n * count(s, 25, &path2_map, &mut cache))
+        .sum();
+    println!("{p2}");
 }
