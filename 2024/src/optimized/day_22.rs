@@ -1,4 +1,4 @@
-use rustc_hash::{FxHashMap, FxHashSet};
+use rustc_hash::FxHashMap;
 
 #[allow(clippy::let_and_return)]
 fn next_secret(secret: usize) -> usize {
@@ -32,7 +32,7 @@ pub fn part1(input: &str) -> usize {
         .map(|&n| secrets_iter(n).nth(2000).unwrap())
         .sum()
 }
-pub fn part2(input: &str) -> usize {
+pub fn part2(input: &str) -> u32 {
     let secrets: Vec<usize> = input.lines()
     .flat_map(str::parse)
     .collect();
@@ -44,15 +44,13 @@ pub fn part2(input: &str) -> usize {
         })
         .collect();
 
-    let keys: FxHashSet<_> = maps.iter()
-        .flat_map(|m| m.keys())
-        .collect();
-    keys.into_iter()
-        .map(|k| {
-            maps.iter()
-                .map(|m| m.get(k).map_or(0, |&n| n) as usize)
-                .sum()
-        })
+    let mut joined = FxHashMap::default();
+    for m in maps {
+        for (k, v) in m {
+            *joined.entry(k).or_default() += v;
+        }
+    }
+    joined.into_values()
         .max()
         .unwrap()
 }
