@@ -32,10 +32,13 @@ pub fn part1(input: &str) -> u64 {
 }
 pub fn part2(input: &str) -> u32 {
     let mut joined = FxHashMap::default();
+    let mut seq = vec![];
+    let mut map = FxHashMap::default();
     for n in parse(input) {
-        let seq: Vec<_> = secrets_iter(n).map(|k| (k % 10) as u8).take(2001).collect();
-        let map: FxHashMap<_, _> = all_quads(&seq).rev().collect();
-        for (k, v) in map {
+        seq.extend(secrets_iter(n).map(|k| (k % 10) as u8).take(2001));
+        map.extend(all_quads(&seq).rev());
+        seq.clear();
+        for (k, v) in map.drain() {
             *joined.entry(k).or_default() += v;
         }
     }
