@@ -17,15 +17,10 @@ fn secrets_iter(secret: u32) -> impl Iterator<Item = u32> {
     std::iter::successors(Some(secret), |&n| Some(next_secret(n)))
 }
 
-fn all_quads(seq: &[u32]) -> impl DoubleEndedIterator<Item=(u32, u32)> + use<'_> {
+fn all_quads(seq: &[u8]) -> impl DoubleEndedIterator<Item=(u32, u32)> + use<'_> {
     seq.windows(5).map(|w| {
-        let value = w[4] % 10;
-        let group = std::array::from_fn(|j| {
-            let s0 = (w[j + 1] % 10) as u8;
-            let s1 = (w[j] % 10) as u8;
-            s0.wrapping_sub(s1)
-        });
-        (u32::from_ne_bytes(group), value)
+        let group = std::array::from_fn(|j| w[j + 1].wrapping_sub(w[j]));
+        (u32::from_ne_bytes(group), u32::from(w[4]))
     })
 }
 
@@ -38,7 +33,7 @@ pub fn part1(input: &str) -> u64 {
 pub fn part2(input: &str) -> u32 {
     let mut joined = FxHashMap::default();
     for n in parse(input) {
-        let seq: Vec<_> = secrets_iter(n).take(2001).collect();
+        let seq: Vec<_> = secrets_iter(n).map(|k| (k % 10) as u8).take(2001).collect();
         let map: FxHashMap<_, _> = all_quads(&seq).rev().collect();
         for (k, v) in map {
             *joined.entry(k).or_default() += v;
