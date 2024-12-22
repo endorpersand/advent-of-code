@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use rustc_hash::{FxHashMap, FxHashSet};
 
 #[allow(clippy::let_and_return)]
 fn next_secret(secret: usize) -> usize {
@@ -11,17 +11,16 @@ fn next_secret(secret: usize) -> usize {
 fn secrets_iter(secret: usize) -> impl Iterator<Item = usize> {
     std::iter::successors(Some(secret), |&n| Some(next_secret(n)))
 }
-fn all_quads(seq: &[usize]) -> impl DoubleEndedIterator<Item=([isize; 4], usize)> + use<'_> {
-    (0..(seq.len() - 4))
-        .map(|i| {
-            let value = seq[i + 4] % 10;
-            let group = std::array::from_fn(|j| {
-                let s0 = seq[i + j + 1] % 10;
-                let s1 = seq[i + j] % 10;
-                s0 as isize - s1 as isize
-            });
-            (group, value)
-        })
+fn all_quads(seq: &[usize]) -> impl DoubleEndedIterator<Item=(u32, u32)> + use<'_> {
+    seq.windows(5).map(|w| {
+        let value = (w[4] % 10) as u32;
+        let group = std::array::from_fn(|j| {
+            let s0 = (w[j + 1] % 10) as u8;
+            let s1 = (w[j] % 10) as u8;
+            s0.wrapping_sub(s1)
+        });
+        (u32::from_ne_bytes(group), value)
+    })
 }
 
 pub fn part1(input: &str) -> usize {
@@ -38,20 +37,20 @@ pub fn part2(input: &str) -> usize {
     .flat_map(str::parse)
     .collect();
 
-    let maps: Vec<HashMap<_, _>> = secrets.iter()
+    let maps: Vec<FxHashMap<_, _>> = secrets.iter()
         .map(|&n| {
             let seq: Vec<_> = secrets_iter(n).take(2001).collect();
             all_quads(&seq).rev().collect()
         })
         .collect();
 
-    let keys: HashSet<_> = maps.iter()
+    let keys: FxHashSet<_> = maps.iter()
         .flat_map(|m| m.keys())
         .collect();
     keys.into_iter()
         .map(|k| {
             maps.iter()
-                .map(|m| m.get(k).map_or(0, |&n| n))
+                .map(|m| m.get(k).map_or(0, |&n| n) as usize)
                 .sum()
         })
         .max()
