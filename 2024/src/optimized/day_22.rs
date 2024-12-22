@@ -34,19 +34,14 @@ pub fn part1(input: &str) -> usize {
 }
 pub fn part2(input: &str) -> u32 {
     let secrets: Vec<usize> = input.lines()
-    .flat_map(str::parse)
-    .collect();
-
-    let maps: Vec<FxHashMap<_, _>> = secrets.iter()
-        .map(|&n| {
-            let seq: Vec<_> = secrets_iter(n).take(2001).collect();
-            all_quads(&seq).rev().collect()
-        })
+        .flat_map(str::parse)
         .collect();
 
     let mut joined = FxHashMap::default();
-    for m in maps {
-        for (k, v) in m {
+    for n in secrets {
+        let seq: Vec<_> = secrets_iter(n).take(2001).collect();
+        let map: FxHashMap<_, _> = all_quads(&seq).rev().collect();
+        for (k, v) in map {
             *joined.entry(k).or_default() += v;
         }
     }
