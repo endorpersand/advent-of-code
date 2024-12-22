@@ -1,5 +1,11 @@
 use rustc_hash::FxHashMap;
 
+fn parse(input: &str) -> Vec<u32> {
+    input.lines()
+        .flat_map(str::parse)
+        .collect()
+}
+
 #[allow(clippy::let_and_return)]
 fn next_secret(mut secret: u32) -> u32 {
     secret ^= (secret <<  6) & 0xFFFFFF;
@@ -7,10 +13,10 @@ fn next_secret(mut secret: u32) -> u32 {
     secret ^= (secret << 11) & 0xFFFFFF;
     secret
 }
-
 fn secrets_iter(secret: u32) -> impl Iterator<Item = u32> {
     std::iter::successors(Some(secret), |&n| Some(next_secret(n)))
 }
+
 fn all_quads(seq: &[u32]) -> impl DoubleEndedIterator<Item=(u32, u32)> + use<'_> {
     seq.windows(5).map(|w| {
         let value = w[4] % 10;
@@ -23,11 +29,6 @@ fn all_quads(seq: &[u32]) -> impl DoubleEndedIterator<Item=(u32, u32)> + use<'_>
     })
 }
 
-fn parse(input: &str) -> Vec<u32> {
-    input.lines()
-        .flat_map(str::parse)
-        .collect()
-}
 pub fn part1(input: &str) -> u64 {
     parse(input).into_iter()
         .map(|n| secrets_iter(n).nth(2000).unwrap())
