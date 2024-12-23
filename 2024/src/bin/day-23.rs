@@ -5,7 +5,6 @@ fn main() {
     soln(&input);
 }
 
-
 fn soln(input: &str) {
     let data: Vec<_> = input.lines()
         .flat_map(|s| s.split_once('-'))
@@ -34,4 +33,26 @@ fn soln(input: &str) {
         .filter(|tri| tri.iter().any(|v| v.starts_with('t')))
         .count();
     println!("{p1}");
+
+    // Finds largest clique of size |adjacents| - 1.
+    // This happens to work for the way this day was designed.
+    let is_clique = |adj: &[_]| {
+        adj.iter().enumerate()
+            .all(|(i, n)| adj[i+1..].iter().all(|m| edges[n].contains(m)))
+    };
+    let mut max_clique = None;
+    'outer: for (&n, adj) in &edges {
+        let clique = [&[n], &**adj].concat();
+        for i in 0..clique.len() {
+            let mut clq = clique.clone();
+            clq.swap_remove(i);
+            if is_clique(&clq) {
+                max_clique.replace(clq);
+                break 'outer;
+            };
+        }
+    }
+    let mut clq = max_clique.unwrap();
+    clq.sort();
+    println!("{}", clq.join(","));
 }
