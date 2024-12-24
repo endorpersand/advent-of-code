@@ -1,8 +1,10 @@
 use std::collections::HashMap;
+use std::rc::Rc;
 
 fn main() {
     let input = std::fs::read_to_string("inputs/24.txt").unwrap();
-    soln(&input);
+    part1(&input);
+    part2(&input);
 }
 
 #[derive(Clone, Copy)]
@@ -61,7 +63,7 @@ fn parse(input: &str) -> Equations<'_> {
     Equations { values, rules }
 
 }
-fn soln(input: &str) {
+fn part1(input: &str) {
     let mut data = parse(input);
 
     while !data.rules.is_empty() {
@@ -81,4 +83,89 @@ fn soln(input: &str) {
 
     let p1 = find_value(&data, 'z');
     println!("{p1}");
+}
+
+enum RuleTree<'a> {
+    And(Rc<RuleTree<'a>>, Rc<RuleTree<'a>>),
+    Xor(Rc<RuleTree<'a>>, Rc<RuleTree<'a>>),
+    Or(Rc<RuleTree<'a>>, Rc<RuleTree<'a>>),
+    Symbol(&'a str)
+}
+impl std::fmt::Debug for RuleTree<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::And(arg0, arg1) => write!(f, "AND({arg0:?}, {arg1:?})"),
+            Self::Xor(arg0, arg1) => write!(f, "XOR({arg0:?}, {arg1:?})"),
+            Self::Or(arg0, arg1)  => write!(f, "OR({arg0:?}, {arg1:?})"),
+            Self::Symbol(arg0)    => write!(f, "{arg0}"),
+        }
+    }
+}
+impl RuleTree<'_> {
+    fn height(&self) -> usize {
+        match self {
+            RuleTree::And(l, r) => l.height().max(r.height()) + 1,
+            RuleTree::Xor(l, r) => l.height().max(r.height()) + 1,
+            RuleTree::Or(l, r)  => l.height().max(r.height()) + 1,
+            RuleTree::Symbol(_) => 0,
+        }
+    }
+}
+impl Rule {
+    fn apply2<'a>(self, mut a: Rc<RuleTree<'a>>, mut b: Rc<RuleTree<'a>>) -> Rc<RuleTree<'a>> {
+        if a.height() > b.height() { std::mem::swap(&mut a, &mut b); }
+        Rc::new(match self {
+            Rule::And => RuleTree::And(a, b),
+            Rule::Xor => RuleTree::Xor(a, b),
+            Rule::Or  => RuleTree::Or(a, b),
+        })
+    }
+}
+fn swap<K: Eq + std::hash::Hash, V: Copy>(map: &mut HashMap<K, V>, k0: K, k1: K) {
+    let (k0, v0) = map.remove_entry(&k0).unwrap();
+    let (k1, v1) = map.remove_entry(&k1).unwrap();
+    map.insert(k0, v1);
+    map.insert(k1, v0);
+}
+fn part2(input: &str) {
+    // Full-bit adder:
+    // S01 = A01 ^ B01 ^ C00
+    // C01 = (A01 & B01) | ((A01 ^ B01) & C00)
+    let Equations { values, rules } = parse(input);
+    let mut rules: HashMap<_, _> = rules.into_iter()
+        .map(|(r, a, b, c)| (c, (r, a, b)))
+        .collect();
+    // Identified by eye
+    swap(&mut rules, "z17", "cmv");
+    swap(&mut rules, "z23", "rmj");
+    swap(&mut rules, "z30", "rdg");
+    swap(&mut rules, "mwp", "btb");
+
+    let mut completed_rules: HashMap<_, _> = values.into_keys()
+        .map(|s| (s, Rc::new(RuleTree::Symbol(s))))
+        .collect();
+
+    while !rules.is_empty() {
+        rules.retain(|c, &mut (r, a, b)| {
+            let mav = completed_rules.get(a);
+            let mbv = completed_rules.get(b);
+
+            match mav.zip(mbv) {
+                Some((av, bv)) => {
+                    let av = av.clone();
+                    let bv = bv.clone();
+
+                    completed_rules.insert(c, r.apply2(av, bv));
+                    false
+                },
+                None => true,
+            }
+        });
+    }
+
+    let mut sorted_rules: Vec<_> = completed_rules.iter().collect();
+    sorted_rules.sort_by_key(|&(k, _)| k);
+    for (sym, tree) in sorted_rules {
+        println!("{sym}: {tree:?}");
+    }
 }
