@@ -58,16 +58,11 @@ fn part1(input: &str) {
 
     while !data.rules.is_empty() {
         data.rules.retain(|&(r, a, b, c)| {
-            let mav = data.values.get(a);
-            let mbv = data.values.get(b);
+            let Some(&av) = data.values.get(a) else { return true };
+            let Some(&bv) = data.values.get(b) else { return true };
 
-            match mav.zip(mbv) {
-                Some((&av, &bv)) => {
-                    data.values.insert(c, r.apply(av, bv));
-                    false
-                },
-                None => true,
-            }
+            data.values.insert(c, r.apply(av, bv));
+            false
         });
     }
 
@@ -112,8 +107,11 @@ impl RuleTree<'_> {
     }
 }
 impl Rule {
-    fn apply2<'a>(self, mut a: Rc<RuleTree<'a>>, mut b: Rc<RuleTree<'a>>) -> Rc<RuleTree<'a>> {
-        if a.height() > b.height() { std::mem::swap(&mut a, &mut b); }
+    fn apply2<'a>(self, a: &Rc<RuleTree<'a>>, b: &Rc<RuleTree<'a>>) -> Rc<RuleTree<'a>> {
+        let (a, b) = match a.height() <= b.height() {
+            true  => (a.clone(), b.clone()),
+            false => (b.clone(), a.clone()),
+        };
         Rc::new(match self {
             Rule::And => RuleTree::And(a, b),
             Rule::Xor => RuleTree::Xor(a, b),
@@ -135,7 +133,9 @@ fn part2(input: &str) {
     let mut rules: HashMap<_, _> = rules.into_iter()
         .map(|(r, a, b, c)| (c, (r, a, b)))
         .collect();
-    // Identified by eye
+    // Nah, I'm not implementing this.
+    // Use the print statements on the very bottom to print out all of the trees,
+    // then find the discrepancies and swap them here:
     swap(&mut rules, "z17", "cmv");
     swap(&mut rules, "z23", "rmj");
     swap(&mut rules, "z30", "rdg");
@@ -147,19 +147,12 @@ fn part2(input: &str) {
 
     while !rules.is_empty() {
         rules.retain(|c, &mut (r, a, b)| {
-            let mav = completed_rules.get(a);
-            let mbv = completed_rules.get(b);
+            let Some(av) = completed_rules.get(a) else { return true };
+            let Some(bv) = completed_rules.get(b) else { return true };
 
-            match mav.zip(mbv) {
-                Some((av, bv)) => {
-                    let av = av.clone();
-                    let bv = bv.clone();
-
-                    completed_rules.insert(c, r.apply2(av, bv));
-                    false
-                },
-                None => true,
-            }
+            let tree = r.apply2(av, bv);
+            completed_rules.insert(c, tree);
+            false
         });
     }
 
