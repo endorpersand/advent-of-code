@@ -24,16 +24,6 @@ struct Equations<'a> {
     values: HashMap<&'a str, bool>,
     rules: Vec<(Rule, &'a str, &'a str, &'a str)>
 }
-fn find_value(eqs: &Equations<'_>, symbol: char) -> usize {
-    let mut vals: Vec<_> = eqs.values.iter()
-        .filter(|(k, _)| k.starts_with(symbol))
-        .collect();
-    vals.sort();
-    vals.into_iter()
-        .rev()
-        .map(|(_, &b)| b)
-        .fold(0, |acc, cv| (acc << 1) + usize::from(cv))
-}
 
 fn parse(input: &str) -> Equations<'_> {
     let mut lines = input.lines();
@@ -81,7 +71,17 @@ fn part1(input: &str) {
         });
     }
 
-    let p1 = find_value(&data, 'z');
+    let mut zbits = [false; 46]; // z00-z45
+    for (k, v) in data.values {
+        // Get index of k
+        let Some(s) = k.strip_prefix('z') else { continue };
+        let Ok(kid) = s.parse::<usize>() else { continue };
+        zbits[kid] = v;
+    }
+
+    let p1 = zbits.into_iter()
+        .rev()
+        .fold(0, |acc, cv| (acc << 1) + usize::from(cv));
     println!("{p1}");
 }
 
@@ -163,9 +163,9 @@ fn part2(input: &str) {
         });
     }
 
-    let mut sorted_rules: Vec<_> = completed_rules.iter().collect();
-    sorted_rules.sort_by_key(|&(k, _)| k);
-    for (sym, tree) in sorted_rules {
-        println!("{sym}: {tree:?}");
-    }
+    // let mut sorted_rules: Vec<_> = completed_rules.iter().collect();
+    // sorted_rules.sort_by_key(|&(k, _)| k);
+    // for (sym, tree) in sorted_rules {
+    //     println!("{sym}: {tree:?}");
+    // }
 }
