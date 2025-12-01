@@ -40,24 +40,22 @@ fn soln(input: &str) {
     println!("{n_zeroes}");
 
     // part 2
-    let mut index: i32 = 50;
-    let mut n_zeroes = 0;
-    for r in &rotations {
-        let old_n_zeroes = n_zeroes;
-        let old_index = index;
-        let delta = if r.right { 1 } else { -1 };
-        for _ in 0..r.to {
-            index = (index + delta).rem_euclid(100);
-            if index == 0 {
-                n_zeroes += 1;
-            }
-        }
+    fn rotate(n: i32, r: Rotation) -> (i32, u32) {
+        let nn = n + r.delta();
+        
+        // Count number of multiples of 100 in shift
+        let d = nn.unsigned_abs() / 100 + u32::from(n > 0 && nn <= 0);
+        // Result
+        let m = nn.rem_euclid(100);
+        (m, d)
+    }
 
-        let a = n_zeroes - old_n_zeroes;
-        let b = ((old_index + r.delta()).div_euclid(100)).abs();
-        if a != b {
-            println!("{a}, {b} - {old_index} {r:?}");
-        }
+    let mut index = 50;
+    let mut n_zeroes = 0;
+    for &r in &rotations {
+        let (new_index, extra_zeroes) = rotate(index, r);
+        index = new_index;
+        n_zeroes += extra_zeroes;
     }
     println!("{n_zeroes}");
 }
