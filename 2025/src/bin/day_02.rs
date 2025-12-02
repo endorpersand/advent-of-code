@@ -4,6 +4,7 @@ use std::num::ParseIntError;
 fn main() {
     let input = std::fs::read_to_string("inputs/02.txt").unwrap();
     soln(&input);
+    soln_opt(&input);
 }
 
 fn parse(input: &str) -> Vec<(u64, u64)> {
@@ -61,6 +62,57 @@ fn soln(input: &str) {
             }
             if lsize < rsize && rsize % n_reps == 0 {
                 invalid_ids.extend(invl(rsize, n_reps, left, right));
+            }
+        }
+    }
+
+    println!("{}", invalid_ids.iter().sum::<u64>());
+}
+fn soln_opt(input: &str) {
+    let ranges = parse(input);
+
+    let digit_len = |n: u64| n.ilog10() + 1;
+    let all_n_digit = |n| 10u64.pow(n - 1) .. 10u64.pow(n);
+    let invl = |size, n_reps, left, right| (size % n_reps == 0).then(|| {
+        let digit_size = size / n_reps;
+        let repeat_factor: u64 = (0..n_reps)
+            .map(|i| 10u64.pow(i * digit_size))
+            .sum();
+        
+        all_n_digit(digit_size)
+            // Equivalent to repeating integer n times
+            .map(move |i| i * repeat_factor)
+            .skip_while(move |&i| i < left)
+            .take_while(move |&i| i <= right)
+    });
+
+
+    // part 1
+    let mut invalid_ids = HashSet::new();
+    for &(left, right) in &ranges {
+        let lsize = digit_len(left);
+        let rsize = digit_len(right);
+
+        for size in lsize..=rsize {
+            if let Some(it) = invl(size, 2, left, right) {
+                invalid_ids.extend(it);
+            }
+        }
+    }
+
+    println!("{}", invalid_ids.iter().sum::<u64>());
+    
+    // part 2
+    let mut invalid_ids = HashSet::new();
+    for (left, right) in ranges {
+        let lsize = digit_len(left);
+        let rsize = digit_len(right);
+        
+        for size in lsize..=rsize {
+            for n_reps in 2..=size {
+                if let Some(it) = invl(size, n_reps, left, right) {
+                    invalid_ids.extend(it);
+                }
             }
         }
     }
