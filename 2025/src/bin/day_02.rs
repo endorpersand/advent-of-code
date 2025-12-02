@@ -41,26 +41,27 @@ fn soln(input: &str) {
     println!("{}", invalid_ids.iter().sum::<u64>());
     
     // part 2
+    let all_n_digit = |n| 10u64.pow(n - 1) .. 10u64.pow(n);
     let mut invalid_ids = HashSet::new();
     for (left, right) in ranges {
         let lsize = left.to_string().len();
         let rsize = right.to_string().len();
         assert!(rsize.abs_diff(lsize) <= 1);
         
-        for n_reps in 1..=(rsize / 2) {
-            let n_reps = n_reps as u32;
-            invalid_ids.extend({
-                (10u64.pow(n_reps - 1) .. 10u64.pow(n_reps))
-                    .flat_map(|i| {
-                        let lstr = i.to_string().repeat(lsize / n_reps as usize);
-                        let rstr = i.to_string().repeat(rsize / n_reps as usize);
-
-                        [(lsize >= 2).then_some(lstr), (rsize >= 2).then_some(rstr)]
-                    })
-                    .flatten()
-                    .map(|s| s.parse::<u64>().unwrap()) // get all dupes
-                    .filter(|i| (left..=right).contains(i))
-            });
+        let invl = |size, rep_size: usize, left, right| {
+            all_n_digit((size / rep_size) as u32)
+            .map(move |i| i.to_string().repeat(rep_size))
+            .map(|s| s.parse::<u64>().unwrap())
+            .skip_while(move |&i| i < left)
+            .take_while(move |&i| i <= right)
+        };
+        for n_reps in 2..=rsize {
+            if lsize % n_reps == 0 {
+                invalid_ids.extend(invl(lsize, n_reps, left, right));
+            }
+            if lsize < rsize && rsize % n_reps == 0 {
+                invalid_ids.extend(invl(rsize, n_reps, left, right));
+            }
         }
     }
 
