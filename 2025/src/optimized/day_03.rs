@@ -3,13 +3,14 @@ fn max_joltage(values: &[usize], n: usize) -> usize {
     let mut idx = 0;
 
     for i in 0..n {
-        let (offset, &max_val) = values[idx..(values.len() - (n - i - 1))]
+        let (max_val, new_idx) = values[idx..(values.len() - (n - i - 1))]
             .iter()
-            .enumerate()
-            .max_by_key(|&(i, &v)| (v, !i))
+            .copied()
+            .zip(idx..)
+            .max_by_key(|&(v, i)| (v, !i))
             .unwrap();
 
-        idx += offset + 1;
+        idx = new_idx + 1;
         result = result * 10 + max_val;
     }
     
