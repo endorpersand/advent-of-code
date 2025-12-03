@@ -10,6 +10,8 @@ impl Bank {
     fn new(n: impl IntoIterator<Item=usize>) -> Self {
         Bank { values: n.into_iter().collect() }
     }
+
+    #[expect(unused)]
     fn max_joltage(&self, n: usize) -> usize {
         // memo[i - 1][j]: the max joltage for i batteries, from self.values[j..]
         let mut memo = vec![vec![0; self.values.len()]; n];
@@ -33,6 +35,23 @@ impl Bank {
         
         memo[n - 1][0]
     }
+    fn max_joltage_greedy(&self, n: usize) -> usize {
+        let mut result = 0;
+        let mut idx = 0;
+
+        for i in 0..n {
+            let (offset, &max_val) = self.values[idx..(self.values.len() - (n - i - 1))]
+                .iter()
+                .enumerate()
+                .max_by_key(|&(i, &v)| (v, !i))
+                .unwrap();
+
+            idx += offset + 1;
+            result = result * 10 + max_val;
+        }
+        
+        result
+    }
 }
 fn parse(input: &str) -> Vec<Bank> {
     input.lines()
@@ -46,13 +65,13 @@ fn soln(input: &str) {
 
     // part 1
     let p1: usize = banks.iter()
-        .map(|b| b.max_joltage(2))
+        .map(|b| b.max_joltage_greedy(2))
         .sum();
     println!("{p1}");
 
     // part 2
     let p2: usize = banks.iter()
-        .map(|b| b.max_joltage(12))
+        .map(|b| b.max_joltage_greedy(12))
         .sum();
     println!("{p2}");
 }
