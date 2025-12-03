@@ -56,7 +56,7 @@ impl Bank {
 fn parse(input: &str) -> Vec<Bank> {
     input.lines()
         .map(|s| Bank::new(
-            s.chars().map(|c| usize::from((c as u8) - b'0'))
+            s.bytes().map(|c| usize::from(c - b'0'))
         ))
         .collect()
 }
