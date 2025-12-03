@@ -3,20 +3,6 @@ fn main() {
     soln(&input);
 }
 
-fn first_instance_of(values: &[usize]) -> [Option<usize>; 10] {
-    let mut indexes = [None; 10];
-    let mut occupied = 0;
-
-    for (i, &value) in values.iter().enumerate() {
-        if occupied >= 10 { break; }
-        if indexes[value].is_none() {
-            indexes[value].replace(i);
-            occupied += 1;
-        }
-    }
-    
-    indexes
-}
 struct Bank {
     values: Vec<usize>
 }
@@ -25,47 +11,27 @@ impl Bank {
         Bank { values: n.into_iter().collect() }
     }
     fn max_joltage(&self, n: usize) -> usize {
-        let instances: Vec<_> = (0..=self.values.len())
-            .map(|i| first_instance_of(&self.values[i..]))
-            .collect();
-        let mut max = 0;
-        let mut frontier = vec![(0, 0, vec![])];
+        // memo[i - 1][j]: the max joltage for i batteries, from self.values[j..]
+        let mut memo = vec![vec![0; self.values.len()]; n];
 
-        while let Some((rest_idx, last_unopt_digit, current)) = frontier.pop() {
-            if current.len() == n {
-                // Completed path
-                let reduced = current
-                    .into_iter()
-                    .fold(0, |acc, cv| acc * 10 + cv);
-                max = std::cmp::max(max, reduced);
-
-                // If we're on optimal path, then there's no reason to check other branches
-                while frontier.last().is_some_and(|(_, _, c)| c.len() > last_unopt_digit) {
-                    frontier.pop();
-                }
-            } else if rest_idx == self.values.len() {
-                // In this case, we definitely didn't reach optimal
-            } else {
-                // Incomplete path, can add another
-                let old_len = frontier.len();
-                frontier.extend({
-                    instances[rest_idx]
-                        .iter()
-                        .enumerate()
-                        .filter_map(|(i, &v)| Some((i, v?)))
-                        .map(|(i, v)| (rest_idx + v + 1, current.len() + 1, {
-                            let mut c = current.clone();
-                            c.push(i);
-                            c
-                        }))
-                });
-                if frontier.len() > old_len {
-                    frontier.last_mut().unwrap().1 = last_unopt_digit;
-                }
+        // memo[1 - 1][j]: base case, max(self.values[j..])
+        #[expect(clippy::needless_range_loop)]
+        for j in 0..self.values.len() {
+            memo[0][j] = *self.values[j..].iter().max().unwrap();
+        }
+        
+        // memo[i - 1][j] = max(values[j] concat memo[i - 2][j + 1], memo[i - 1][j + 1])
+        //  i.e., select this digit as next, or select some future digit as next
+        for i in 1..n {
+            for j in (0..(self.values.len() - i)).rev() {
+                memo[i][j] = std::cmp::max(
+                    10usize.pow(i as u32) * self.values[j] + memo[i - 1][j + 1],
+                    memo[i][j + 1]
+                );
             }
         }
-
-        max
+        
+        memo[n - 1][0]
     }
 }
 fn parse(input: &str) -> Vec<Bank> {
