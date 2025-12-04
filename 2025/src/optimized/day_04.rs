@@ -10,12 +10,13 @@ impl Grid {
         && (c < self.cols)
         && self.buf[r * self.cols + c]
     }
-    fn removables(&self) -> impl Iterator<Item=Coord> {
+    fn removables(&self) -> impl Iterator<Item=usize> {
         self.buf.iter()
             .enumerate()
-            .filter_map(|(i, &cell)| cell.then_some((i / self.cols, i % self.cols)))
-            .filter(|&p| {
-                let nc = neighbors(p)
+            .filter(|&(_, &cell)| cell)
+            .map(|(i, _)| i)
+            .filter(|&i| {
+                let nc = neighbors((i / self.cols, i % self.cols))
                     .into_iter()
                     .filter(|&p| self.get(p))
                     .count();
@@ -55,8 +56,8 @@ pub fn part2(input: &str) -> usize {
         && !removed.is_empty()
     {
         p2 += removed.len();
-        for (r, c) in removed {
-            grid.buf[r * grid.cols + c] = false;
+        for i in removed {
+            grid.buf[i] = false;
         }
     }
     p2
