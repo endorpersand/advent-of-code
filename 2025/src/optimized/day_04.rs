@@ -1,24 +1,23 @@
 #[derive(Debug)]
 struct Grid {
-    buf: Vec<Vec<bool>>,
+    buf: Vec<bool>,
+    rows: usize,
+    cols: usize
 }
 impl Grid {
+    fn get(&self, (r, c): Coord) -> bool {
+        (r < self.rows)
+        && (c < self.cols)
+        && self.buf[r * self.cols + c]
+    }
     fn removables(&self) -> impl Iterator<Item=Coord> {
         self.buf.iter()
             .enumerate()
-            .flat_map(|(r, row)| {
-                row.iter().enumerate()
-                    .filter(|&(_, &cell)| cell)
-                    .map(move |(c, _)| (r, c))
-            })
+            .filter_map(|(i, &cell)| cell.then_some((i / self.cols, i % self.cols)))
             .filter(|&p| {
                 let nc = neighbors(p)
                     .into_iter()
-                    .filter(|&mn| {
-                        mn
-                            .and_then(|(r, c)| self.buf.get(r)?.get(c))
-                            .is_some_and(|&cell| cell)
-                    })
+                    .filter(|&p| self.get(p))
                     .count();
 
                 nc < 4
@@ -26,25 +25,21 @@ impl Grid {
     }
 }
 fn parse(input: &str) -> Grid {
-    let buf = input.lines()
-        .map(|l| {
-            l.bytes()
-                .map(|c| c == b'@')
-                .collect()
-            })
-        .collect();
-
-    Grid { buf }
+    let cols = input.bytes().position(|c| c == b'\n').unwrap() + 1;
+    let buf: Vec<_> = input.bytes().map(|c| c == b'@').collect();
+    let rows = buf.len() / cols;
+    
+    Grid { buf, rows, cols }
 }
 
 type Coord = (usize, usize);
-fn neighbors((r, c): Coord) -> [Option<Coord>; 8] {
-    let [rn, rz, rp] = [r.checked_sub(1), Some(r), r.checked_add(1)];
-    let [cn, cz, cp] = [c.checked_sub(1), Some(c), c.checked_add(1)];
+fn neighbors((r, c): Coord) -> [Coord; 8] {
+    let [rn, rz, rp] = [r.wrapping_sub(1), r, r.wrapping_add(1)];
+    let [cn, cz, cp] = [c.wrapping_sub(1), c, c.wrapping_add(1)];
     [
-        rn.zip(cn), rn.zip(cz), rn.zip(cp),
-        rz.zip(cn),             rz.zip(cp),
-        rp.zip(cn), rp.zip(cz), rp.zip(cp),
+        (rn, cn), (rn, cz), (rn, cp),
+        (rz, cn),           (rz, cp),
+        (rp, cn), (rp, cz), (rp, cp),
     ]
 }
 
@@ -61,7 +56,7 @@ pub fn part2(input: &str) -> usize {
     {
         p2 += removed.len();
         for (r, c) in removed {
-            grid.buf[r][c] = false;
+            grid.buf[r * grid.cols + c] = false;
         }
     }
     p2
