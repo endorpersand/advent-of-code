@@ -1,5 +1,5 @@
 use std::collections::BTreeMap;
-use std::ops::{Range, RangeInclusive};
+use std::ops::RangeInclusive;
 
 fn main() {
     let input = std::fs::read_to_string("inputs/05.txt").unwrap();
@@ -26,11 +26,11 @@ fn parse(input: &str) -> Input {
 #[derive(Default)]
 struct RangeMap(BTreeMap<usize, usize>);
 impl RangeMap {
-    fn ranges_overlapping(&self, r: &RangeInclusive<usize>) -> Vec<Range<usize>> {
+    fn ranges_overlapping(&self, r: &RangeInclusive<usize>) -> Vec<RangeInclusive<usize>> {
         let mut v: Vec<_> = self.0.range(..=r.end())
             .rev()
-            .map(|(&start, &len)| start .. start + len)
-            .take_while(|mr| mr.start <= *r.end() && *r.start() < mr.end)
+            .map(|(&start, &len)| start ..= start + len - 1)
+            .take_while(|mr| mr.start() <= r.end() && r.start() <= mr.end())
             .collect();
         v.reverse();
         v
@@ -40,13 +40,13 @@ impl RangeMap {
         match (overlapping.first(), overlapping.last()) {
             (Some(front), Some(back)) => {
                 // If overlapping ranges exist, merge overlapping ranges
-                let start = front.start.min(*r.start());
-                let end = back.end.max(*r.end() + 1);
+                let &start = front.start().min(r.start());
+                let &end = back.end().max(r.end());
                 
                 for o in overlapping {
-                    self.0.remove(&o.start);
+                    self.0.remove(o.start());
                 }
-                self.0.insert(start, end - start);
+                self.0.insert(start, end - start + 1);
             },
             _ => {
                 // If no overlapping ranges, create new range
