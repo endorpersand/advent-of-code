@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::ops::RangeInclusive;
 
 fn main() {
@@ -23,40 +22,12 @@ fn parse(input: &str) -> Input {
     Input { ranges, ingredients }
 }
 
-#[derive(Default)]
-struct RangeMap(BTreeMap<usize, usize>);
-impl RangeMap {
-    fn ranges_overlapping(&self, r: &RangeInclusive<usize>) -> Vec<RangeInclusive<usize>> {
-        let mut v: Vec<_> = self.0.range(..=r.end())
-            .rev()
-            .map(|(&start, &len)| start ..= start + len - 1)
-            .take_while(|mr| mr.start() <= r.end() && r.start() <= mr.end())
-            .collect();
-        v.reverse();
-        v
-    }
-    fn add_range(&mut self, r: RangeInclusive<usize>) {
-        let overlapping = self.ranges_overlapping(&r);
-        match (overlapping.first(), overlapping.last()) {
-            (Some(front), Some(back)) => {
-                // If overlapping ranges exist, merge overlapping ranges
-                let &start = front.start().min(r.start());
-                let &end = back.end().max(r.end());
-                
-                for o in overlapping {
-                    self.0.remove(o.start());
-                }
-                self.0.insert(start, end - start + 1);
-            },
-            _ => {
-                // If no overlapping ranges, create new range
-                self.0.insert(*r.start(), r.count());
-            }
-        }
-    }
+fn ranges_overlapping(r1: &RangeInclusive<usize>, r2: &RangeInclusive<usize>) -> bool {
+    r1.start() <= r2.end() && r2.start() <= r1.end()
 }
+
 fn soln(input: &str) {
-    let data = parse(input);
+    let mut data = parse(input);
 
     // part 1
     let p1 = data.ingredients.iter()
@@ -65,10 +36,21 @@ fn soln(input: &str) {
     println!("{p1}");
 
     // part 2
-    let mut map = RangeMap::default();
-    for d in &data.ranges {
-        map.add_range(d.clone());
+    data.ranges.sort_by_key(|r| *r.start());
+    let mut ranges = vec![]; // A list of all ranges, merged
+    for r in data.ranges {
+        if let Some(lr) = ranges.last_mut() && ranges_overlapping(lr, &r) {
+            // If this range overlaps with the previous range, merge
+            let &start = lr.start().min(r.start());
+            let &end = lr.end().max(r.end());
+            *lr = start ..= end;
+        } else {
+            // Otherwise, add new range
+            ranges.push(r);
+        }
     }
-    let p2: usize = map.0.values().sum();
+    let p2: usize = ranges.into_iter()
+        .map(|r| r.count())
+        .sum();
     println!("{p2}");
 }
