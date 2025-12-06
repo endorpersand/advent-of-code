@@ -1,100 +1,63 @@
 fn main() {
     let input = std::fs::read_to_string("inputs/06.txt").unwrap();
-    soln(&input);
+    println!("{}", part1(&input));
+    println!("{}", part2(&input));
 }
 
 #[derive(Clone, Copy)]
 enum Op { Plus, Times }
-struct Expr {
-    values: Vec<usize>,
-    op: Op
-}
-impl Expr {
-    fn eval(&self) -> usize {
-        match self.op {
-            Op::Plus => self.values.iter().sum(),
-            Op::Times => self.values.iter().product(),
+impl Op {
+    fn eval(&self, values: impl IntoIterator<Item=usize>) -> usize {
+        match self {
+            Op::Plus => values.into_iter().sum(),
+            Op::Times => values.into_iter().product(),
         }
     }
 }
 
-fn transpose<I: Iterator>(mut iters: Vec<I>) -> impl Iterator<Item=Vec<I::Item>> {
-    std::iter::from_fn(move || iters.iter_mut().map(|l| l.next()).collect())
+fn transpose_lines<'a, I: Iterator + 'a>(input: &'a str, tokenize: impl FnMut(&'a str) -> I) -> impl Iterator<Item=Vec<I::Item>> {
+    let mut token_its: Vec<_> = input.lines().map(tokenize).collect();
+    std::iter::from_fn(move || token_its.iter_mut().map(|l| l.next()).collect())
 }
-fn parse1(input: &str) -> Vec<Expr> {
-    let mut lines = input.lines();
-
-    let ops = lines.next_back().unwrap().split_whitespace();
-    let value_iters: Vec<_> = lines.map(|s| s.split_whitespace()).collect();
-
-    let mut exprs = vec![];
-    for (opstr, valuestrs) in std::iter::zip(ops, transpose(value_iters)) {
-        let op = match opstr {
-            "+" => Op::Plus,
-            "*" => Op::Times,
-            _ => unreachable!()
-        };
-
-        let values = valuestrs.into_iter()
-            .map(|n| n.parse().unwrap())
-            .collect();
-
-        exprs.push(Expr { values, op })
-    }
-
-    exprs
+fn part1(input: &str) -> usize {
+    transpose_lines(input, str::split_whitespace)
+        .map(|mut token_strs| {
+            let op = match token_strs.pop() {
+                Some("+") => Op::Plus,
+                Some("*") => Op::Times,
+                _ => unreachable!()
+            };
+        
+            op.eval({
+                token_strs.into_iter()
+                    .map(|n| n.parse().unwrap())
+            })
+        })
+        .sum()
 }
-fn parse2(input: &str) -> Vec<Expr> {
-    let lines: Vec<_> = input.lines()
-        .map(|s| s.bytes())
-        .collect();
-
-    let mut exprs = vec![];
+fn part2(input: &str) -> usize {
+    let mut sum = 0;
 
     let mut curr_op = Op::Plus;
     let mut curr_values = vec![];
 
-    for vbytes in transpose(lines) {
-        let mut vline = String::from_utf8(vbytes).unwrap();
-        match vline.pop() {
-            Some('+') => curr_op = Op::Plus,
-            Some('*') => curr_op = Op::Times,
+    for mut vbytes in transpose_lines(input, str::bytes) {
+        match vbytes.pop() {
+            Some(b'+') => curr_op = Op::Plus,
+            Some(b'*') => curr_op = Op::Times,
             _ => {}
         }
-    
+
+        let vline = String::from_utf8(vbytes).unwrap();
         let trimmed = vline.trim();
         // If not all spaces, add to current list
         if trimmed.is_empty() {
-            exprs.push(Expr {
-                op: curr_op,
-                values: curr_values
-            });
-            curr_values = vec![];
+            sum += curr_op.eval(std::mem::take(&mut curr_values));
         } else {
             curr_values.push(trimmed.parse().unwrap());
         }
     }
-    exprs.push(Expr {
-        op: curr_op,
-        values: curr_values
-    });
+    sum += curr_op.eval(curr_values);
     
-    exprs
-}
-
-
-fn soln(input: &str) {
-    // part 1
-    let p1: usize = parse1(input).iter()
-        .map(|e| e.eval())
-        .sum();
-
-    println!("{p1}");
-
-    // part 2
-    let p2: usize = parse2(input).iter()
-        .map(|e| e.eval())
-        .sum();
-
-    println!("{p2}");
+    sum
 }
