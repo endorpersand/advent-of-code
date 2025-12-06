@@ -18,26 +18,25 @@ impl Expr {
     }
 }
 
+fn transpose<I: Iterator>(mut iters: Vec<I>) -> impl Iterator<Item=Vec<I::Item>> {
+    std::iter::from_fn(move || iters.iter_mut().map(|l| l.next()).collect())
+}
 fn parse1(input: &str) -> Vec<Expr> {
     let mut lines = input.lines();
 
     let ops = lines.next_back().unwrap().split_whitespace();
-    let mut value_iters: Vec<_> = lines.map(|s| s.split_whitespace()).collect();
+    let value_iters: Vec<_> = lines.map(|s| s.split_whitespace()).collect();
 
     let mut exprs = vec![];
-    for opstr in ops {
+    for (opstr, valuestrs) in std::iter::zip(ops, transpose(value_iters)) {
         let op = match opstr {
             "+" => Op::Plus,
             "*" => Op::Times,
             _ => unreachable!()
         };
-        let values = value_iters.iter_mut()
-            .map(|s| loop {
-                let n = s.next().unwrap();
-                if !n.is_empty() {
-                    break n.parse().unwrap();
-                }
-            })
+
+        let values = valuestrs.into_iter()
+            .map(|n| n.parse().unwrap())
             .collect();
 
         exprs.push(Expr { values, op })
@@ -46,7 +45,7 @@ fn parse1(input: &str) -> Vec<Expr> {
     exprs
 }
 fn parse2(input: &str) -> Vec<Expr> {
-    let mut lines: Vec<_> = input.lines()
+    let lines: Vec<_> = input.lines()
         .map(|s| s.bytes())
         .collect();
 
@@ -55,14 +54,14 @@ fn parse2(input: &str) -> Vec<Expr> {
     let mut curr_op = Op::Plus;
     let mut curr_values = vec![];
 
-    while let Some(vbytes) = lines.iter_mut().map(|l| l.next()).collect() {
+    for vbytes in transpose(lines) {
         let mut vline = String::from_utf8(vbytes).unwrap();
         match vline.pop() {
             Some('+') => curr_op = Op::Plus,
             Some('*') => curr_op = Op::Times,
             _ => {}
         }
-
+    
         let trimmed = vline.trim();
         // If not all spaces, add to current list
         if trimmed.is_empty() {
@@ -79,7 +78,7 @@ fn parse2(input: &str) -> Vec<Expr> {
         op: curr_op,
         values: curr_values
     });
-
+    
     exprs
 }
 
