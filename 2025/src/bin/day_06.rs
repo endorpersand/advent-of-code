@@ -3,6 +3,7 @@ fn main() {
     soln(&input);
 }
 
+#[derive(Clone, Copy)]
 enum Op { Plus, Times }
 struct Expr {
     values: Vec<usize>,
@@ -50,35 +51,34 @@ fn parse2(input: &str) -> Vec<Expr> {
         .collect();
 
     let mut exprs = vec![];
-    let mut curr_expr_str = vec![];
-    fn process(es: &[String]) -> Expr {
-        let lm1 = es[0].len() - 1;
-        let op = match es[0].as_bytes().last() {
-            Some(b'+') => Op::Plus,
-            Some(b'*') => Op::Times,
-            _ => unreachable!()
-        };
 
-        let values = es.iter().rev()
-            .map(|s| s[..lm1].trim().parse().unwrap())
-            .collect();
-        
-        Expr { op, values }
-    }
+    let mut curr_op = Op::Plus;
+    let mut curr_values = vec![];
 
     while let Some(vbytes) = lines.iter_mut().map(|l| l.next()).collect() {
-        let vline = String::from_utf8(vbytes).unwrap();
+        let mut vline = String::from_utf8(vbytes).unwrap();
+        match vline.pop() {
+            Some('+') => curr_op = Op::Plus,
+            Some('*') => curr_op = Op::Times,
+            _ => {}
+        }
 
+        let trimmed = vline.trim();
         // If not all spaces, add to current list
-        if !vline.trim().is_empty() {
-            curr_expr_str.push(vline);
+        if trimmed.is_empty() {
+            exprs.push(Expr {
+                op: curr_op,
+                values: curr_values
+            });
+            curr_values = vec![];
         } else {
-            // Otherwise, create new expr
-            exprs.push(process(&curr_expr_str));
-            curr_expr_str.clear();
+            curr_values.push(trimmed.parse().unwrap());
         }
     }
-    exprs.push(process(&curr_expr_str)); // Process remaining into expr
+    exprs.push(Expr {
+        op: curr_op,
+        values: curr_values
+    });
 
     exprs
 }
