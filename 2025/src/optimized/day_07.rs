@@ -18,9 +18,12 @@ pub fn part1(input: &str) -> usize {
 
     for l in rows {
         for (i, &b) in l.iter().enumerate() {
-            if is_hit(b) && beams[i] {
-                beams[i - 1 ..= i + 1].copy_from_slice(&[true, false, true]);
-                splits += 1;
+            if is_hit(b) {
+                unsafe {
+                    splits += usize::from(*beams.get_unchecked(i));
+                    let replacement = [*beams.get_unchecked(i - 1) | *beams.get_unchecked(i), false, *beams.get_unchecked(i + 1) | *beams.get_unchecked(i)];
+                    beams.get_unchecked_mut(i - 1 ..= i + 1).copy_from_slice(&replacement);
+                }
             }
         }
     }
@@ -37,8 +40,10 @@ pub fn part2(input: &str) -> usize {
     for l in rows {
         for (i, &b) in l.iter().enumerate() {
             if is_hit(b) {
-                let replacement = [beams[i - 1] + beams[i], 0, beams[i + 1] + beams[i]];
-                beams[i - 1 ..= i + 1].copy_from_slice(&replacement);
+                unsafe {
+                    let replacement = [*beams.get_unchecked(i - 1) + *beams.get_unchecked(i), 0, *beams.get_unchecked(i + 1) + *beams.get_unchecked(i)];
+                    beams.get_unchecked_mut(i - 1 ..= i + 1).copy_from_slice(&replacement);
+                }
             }
         }
     }
