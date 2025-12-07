@@ -31,10 +31,9 @@ pub fn part2(input: &str) -> usize {
         .collect();
     for l in rows {
         for (i, &split) in l.iter().enumerate() {
-            if split && beams[i] > 0 {
-                beams[i - 1] += beams[i];
-                beams[i + 1] += beams[i];
-                beams[i] = 0;
+            if split {
+                let replacement = [beams[i - 1] + beams[i], 0, beams[i + 1] + beams[i]];
+                beams[i - 1 ..= i + 1].copy_from_slice(&replacement);
             }
         }
     }
