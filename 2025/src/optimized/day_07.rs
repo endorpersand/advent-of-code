@@ -1,18 +1,17 @@
-fn parse(input: &str) -> Vec<Vec<bool>> {
-    input.lines()
-        .map(|s| {
-            s.bytes()
-                .map(|b| b != b'.')
-                .collect()
-        }).collect()
+fn parse(input: &str) -> (Vec<bool>, usize) {
+    let len = input.find('\n').unwrap() + 1;
+    let grid = input.bytes()
+        .map(|b| b == b'^' || b == b'S')
+        .collect();
+    (grid, len)
 }
 pub fn part1(input: &str) -> usize {
-    let beams = parse(input);
-    let (first, rest) = beams.split_first().unwrap();
-    
-    let mut beams = first.clone();
+    let (grid, len) = parse(input);
+    let mut rows = grid.chunks(len);
+
+    let mut beams = rows.next().unwrap().to_vec();
     let mut splits = 0;
-    for l in rest {
+    for l in rows {
         for (i, &split) in l.iter().enumerate() {
             if split && beams[i] {
                 beams[i - 1 ..= i + 1].copy_from_slice(&[true, false, true]);
@@ -23,14 +22,14 @@ pub fn part1(input: &str) -> usize {
     splits
 }
 pub fn part2(input: &str) -> usize {
-    let beams = parse(input);
-    let (first, rest) = beams.split_first().unwrap();
-    
-    let mut beams: Vec<_> = first.iter()
+    let (grid, len) = parse(input);
+    let mut rows = grid.chunks(len);
+
+    let mut beams: Vec<_> = rows.next().unwrap().iter()
         .copied()
         .map(usize::from)
         .collect();
-    for l in rest {
+    for l in rows {
         for (i, &split) in l.iter().enumerate() {
             if split && beams[i] > 0 {
                 beams[i - 1] += beams[i];
