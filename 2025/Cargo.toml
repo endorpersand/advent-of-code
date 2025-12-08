@@ -5,7 +5,6 @@ edition = "2024"
 
 [dependencies]
 criterion = "0.8.0"
-disjoint = "0.8.0"
 
 [[bench]]
 name = "benchmarks"

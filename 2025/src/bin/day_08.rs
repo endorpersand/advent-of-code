@@ -1,5 +1,3 @@
-use disjoint::DisjointSet;
-
 fn main() {
     let input = std::fs::read_to_string("inputs/08.txt").unwrap();
     println!("{}", part1(&input));
@@ -7,7 +5,44 @@ fn main() {
 }
 
 type Vector = [usize; 3];
+struct Dsds {
+    parents: Vec<usize>,
+    sizes: Vec<usize>
+}
+impl Dsds {
+    fn new(len: usize) -> Self {
+        Self { parents: (0..len).collect(), sizes: vec![1; len] }
+    }
+    fn find(&mut self, mut i: usize) -> usize {
+        while self.parents[i] != i {
+            (i, self.parents[i]) = (self.parents[i], self.parents[self.parents[i]]);
+        }
+        i
+    }
+    fn join(&mut self, i: usize, j: usize) -> bool {
+        let i = self.find(i);
+        let j = self.find(j);
 
+        if i == j { return false; }
+        let [i, j] = if self.sizes[i] <= self.sizes[j] { [i, j] } else { [j, i] };
+        self.parents[i] = j;
+        self.sizes[j] += self.sizes[i];
+        true
+    }
+    fn roots(&self) -> usize {
+        (0..self.parents.len())
+            .filter(|&i| i == self.parents[i])
+            .count()
+    }
+    fn set_sizes(&mut self) -> Vec<usize> {
+        let mut sz: Vec<_> = (0..self.parents.len())
+            .filter(|&i| i == self.parents[i])
+            .map(|i| self.sizes[i])
+            .collect();
+        sz.sort_by_key(|&k| !k);
+        sz
+    }
+}
 fn sq_dist(l: Vector, r: Vector) -> usize {
     std::iter::zip(l, r)
         .map(|(a, b)| a.abs_diff(b).pow(2))
@@ -39,29 +74,21 @@ fn part1(input: &str) -> usize {
 
     let vectors = parse(input);
     let distances = dist_vec(&vectors);
-    let mut jboxes = DisjointSet::with_len(vectors.len());
+    let mut jboxes = Dsds::new(vectors.len());
     
     for &(_, [i, j]) in &distances[0..SHORTEST_N] {
         jboxes.join(i, j);
     }
 
-    let mut sets = jboxes.sets();
-    sets.sort_by_key(|s| !s.len());
-    sets[0..TOP_N].iter().map(|s| s.len()).product()
+    jboxes.set_sizes()[0..TOP_N].iter().product()
 }
 fn part2(input: &str) -> usize {
     let vectors = parse(input);
     let distances = dist_vec(&vectors);
-    let mut jboxes = DisjointSet::with_len(vectors.len());
-
-    fn count_sets(v: &DisjointSet) -> usize {
-        (0..v.len())
-            .filter(|&i| v.root_of(i) == i)
-            .count()
-    }
+    let mut jboxes = Dsds::new(vectors.len());
 
     for (_, [i, j]) in distances {
-        if jboxes.join(i, j) && count_sets(&jboxes) == 1 {
+        if jboxes.join(i, j) && jboxes.roots() == 1 {
             return vectors[i][0] * vectors[j][0];
         }
     }
