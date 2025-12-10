@@ -82,5 +82,29 @@ fn part1(input: &str) -> usize {
 }
 
 fn part2(input: &str) -> usize {
-    0
+    let machine = parse(input);
+
+    machine.iter()
+        .map(|Machine { controls, joltages, .. }| {
+            let control_vars: Vec<_> = (0..controls.len()).map(|_| z3::ast::Int::fresh_const("control")).collect();
+            let optimize = z3::Optimize::new();
+
+            for var in &control_vars {
+                optimize.assert(&var.ge(0));
+            }
+            for (i, &jolt) in joltages.iter().enumerate() {
+                let s: Vec<_> = std::iter::zip(controls, &control_vars)
+                    .filter(|&(&c, _)| get(c, i))
+                    .map(|(_, var)| var)
+                    .collect();
+                optimize.assert(&z3::ast::Int::add(&s).eq(jolt as u32));
+            }
+
+            let opt = z3::ast::Int::add(&control_vars);
+            optimize.minimize(&opt);
+
+            optimize.check(&[]);
+            optimize.get_model().unwrap().eval(&opt, true).unwrap().as_u64().unwrap() as usize
+        })
+        .sum()
 }
