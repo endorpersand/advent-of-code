@@ -21,7 +21,6 @@ fn parse(input: &str) -> Graph<'_> {
     Graph { nodes }
 }
 
-type MemoEntry<'a> = (&'a str, bool, bool);
 impl Graph<'_> {
     fn count_paths(&self, from: &str, to: &str) -> usize {
         let mut frontier = vec![from];
@@ -38,23 +37,21 @@ impl Graph<'_> {
         found
     }
 
-    fn count2_memo<'a>(&'a self, entry: MemoEntry<'a>, to: &str, memo: &mut HashMap<MemoEntry<'a>, usize>) -> usize {
-        let (from, thru_dac, thru_fft) = entry;
+    fn count_paths2<'a>(&'a self, from: &'a str, to: &'a str, memo: &mut HashMap<(&'a str, &'a str), usize>) -> usize {
         if from == to {
-            return usize::from(thru_dac && thru_fft);
+            return 1;
         }
-        if let Some(&n) = memo.get(&entry) {
+        if from == "out" {
+            return 0;
+        }
+        if let Some(&n) = memo.get(&(from, to)) {
             return n;
         }
         
         let result = self.nodes[from].iter()
-            .map(|&node| match node {
-                "dac" => self.count2_memo((node, true, thru_fft), to, memo),
-                "fft" => self.count2_memo((node, thru_dac, true), to, memo),
-                _ => self.count2_memo((node, thru_dac, thru_fft), to, memo)
-            })
+            .map(|&node| self.count_paths2(node, to, memo))
             .sum();
-        memo.insert(entry, result);
+        memo.insert((from, to), result);
 
         result
     }
@@ -64,10 +61,10 @@ fn part1(input: &str) -> usize {
     parse(input).count_paths("you", "out")
 }
 fn part2(input: &str) -> usize {
-    parse(input)
-        .count2_memo(
-            ("svr", false, false),
-            "out",
-            &mut Default::default()
-        )
+    let graph = parse(input);
+    let mut memo = Default::default();
+
+    graph.count_paths2("svr", "fft", &mut memo)
+    * graph.count_paths2("fft", "dac", &mut memo)
+    * graph.count_paths2("dac", "out", &mut memo)
 }
