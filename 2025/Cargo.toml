@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 criterion = "0.8.0"
+z3 = "0.19.5"
 
 [[bench]]
 name = "benchmarks"
