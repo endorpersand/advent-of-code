@@ -22,7 +22,12 @@ pub fn part1(input: &str) -> usize {
                 unsafe {
                     splits += usize::from(*beams.get_unchecked(i));
                     let replacement = [*beams.get_unchecked(i - 1) | *beams.get_unchecked(i), false, *beams.get_unchecked(i + 1) | *beams.get_unchecked(i)];
-                    beams.get_unchecked_mut(i - 1 ..= i + 1).copy_from_slice(&replacement);
+
+                    std::ptr::copy_nonoverlapping(
+                        replacement.as_ptr(),
+                        beams.as_mut_ptr().add(i - 1),
+                        3
+                    );
                 }
             }
         }
@@ -42,7 +47,11 @@ pub fn part2(input: &str) -> usize {
             if is_hit(b) {
                 unsafe {
                     let replacement = [*beams.get_unchecked(i - 1) + *beams.get_unchecked(i), 0, *beams.get_unchecked(i + 1) + *beams.get_unchecked(i)];
-                    beams.get_unchecked_mut(i - 1 ..= i + 1).copy_from_slice(&replacement);
+                    std::ptr::copy_nonoverlapping(
+                        replacement.as_ptr(),
+                        beams.as_mut_ptr().add(i - 1),
+                        3
+                    );
                 }
             }
         }
