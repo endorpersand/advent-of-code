@@ -16,7 +16,8 @@ pub fn part1(input: &str) -> usize {
         .collect();
     let mut splits = 0;
 
-    for l in rows {
+    rows.next();
+    for l in rows.step_by(2) {
         for (i, &b) in l.iter().enumerate() {
             if is_hit(b) {
                 unsafe {
@@ -42,7 +43,9 @@ pub fn part2(input: &str) -> usize {
         .map(|&b| is_hit(b))
         .map(usize::from)
         .collect();
-    for l in rows {
+    
+    rows.next();
+    for l in rows.step_by(2) {
         for (i, &b) in l.iter().enumerate() {
             if is_hit(b) {
                 unsafe {
