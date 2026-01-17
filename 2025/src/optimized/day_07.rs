@@ -107,7 +107,7 @@ pub fn part2(input: &str) -> usize {
     
     for (i, l) in rows.enumerate() {
         let slice = unsafe { l.get_unchecked(HALF - i .. HALF + 1 + i) };
-        for (j, &b) in std::iter::zip(HALF - i.., slice) {
+        for (j, &b) in std::iter::zip(HALF - i.., slice).step_by(2) {
             if is_hit(b) {
                 unsafe {
                     let replacement = [*beams.get_unchecked(j - 1) + *beams.get_unchecked(j), 0, *beams.get_unchecked(j + 1) + *beams.get_unchecked(j)];
