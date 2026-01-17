@@ -1,4 +1,4 @@
-use std::simd::{LaneCount, SupportedLaneCount, prelude::*};
+use std::simd::prelude::*;
 
 #[inline]
 fn parse(input: &str) -> (&[u8], usize) {
@@ -10,41 +10,27 @@ fn is_hit(b: u8) -> bool {
     b & 0x40 != 0
 }
 
-fn as_simd(s: &[u8]) -> [u8x64; 3] {
+#[inline]
+fn simd_hit(s: u8x64) -> u64 {
+    s.simd_eq(u8x64::splat(b'^')).to_bitmask()
+}
+#[inline]
+fn simd_hits(s: &[u8]) -> u64x4 {
     let (&[a, b], c) = s.as_chunks() else {
         unreachable!()
     };
-    
-    [
-        u8x64::from_array(a),
-        u8x64::from_array(b),
-        u8x64::load_or_default(c)
-    ]
-}
-fn simd_shk<const N: usize, const M: usize>(s: [Simd<u8, N>; M]) -> [Simd<u8, N>; M]
-    where LaneCount<N>: SupportedLaneCount
-{
-    std::array::from_fn(|i| {
-        let r = if i < M - 1 { s[i + 1][0] } else { 0 };
-        let l = if i > 0 { s[i - 1][N - 1] } else { 0 };
-
-        s[i].shift_elements_left::<1>(r) | s[i].shift_elements_right::<1>(l)
-    })
+    u64x4::from_array([
+        simd_hit(u8x64::from_array(a)),
+        simd_hit(u8x64::from_array(b)),
+        simd_hit(u8x64::load_or_default(c)),
+        0
+    ])
 }
 
 pub fn part1(input: &str) -> usize {
-    #[inline]
-    fn simd_hit<const N: usize>(s: Simd<u8, N>) -> u32
-        where LaneCount<N>: SupportedLaneCount
-    {
-        s.simd_eq(Simd::splat(b'^'))
-            .to_bitmask()
-            .count_ones()
-    }
-
     const LEN: usize = 142;
     const HALF: usize = LEN / 2 - 1;
-    const OFFSET: usize = HALF - 32;
+    const OFFSET: usize = HALF - 31;
     
     let (grid, len) = parse(input);
     debug_assert_eq!(len, LEN);
@@ -53,39 +39,39 @@ pub fn part1(input: &str) -> usize {
     let mut splits = 0;
 
     // Beam width <= 64
-    let mut beams = u8x64::splat(b'.');
-    beams[32] = b'^';
+    let mut beams = 1u64 << 31;
 
     for _ in 1..=31 { // maximum distance from center
         let splitters = unsafe {
-            let l = rows.next().unwrap_unchecked();
-            u8x64::load_or_default(l.get_unchecked(OFFSET..))
+            let l = rows.next().unwrap_unchecked().get_unchecked(OFFSET..);
+            simd_hit(u8x64::load_or_default(l))
         };
         let split_beams = beams & splitters;
 
-        splits += simd_hit(split_beams);
+        splits += split_beams.count_ones();
         beams &= !split_beams;
-        beams |= split_beams.shift_elements_left::<1>(0);
-        beams |= split_beams.shift_elements_right::<1>(0);
+        beams |= split_beams << 1;
+        beams |= split_beams >> 1;
     }
 
     // Beam width > 64
-    let mut beams = [
-        beams.shift_elements_right::<OFFSET>(0),
-        beams.shift_elements_left::<{ 64 - OFFSET }>(0),
-        u8x64::splat(0)
-    ];
-    for splitters in rows.map(as_simd) {
-        let split_beams = std::array::from_fn(|i| beams[i] & splitters[i]);
+    let mut beams = u64x4::from_array([
+        beams << OFFSET,
+        beams >> (64 - OFFSET),
+        0,
+        0
+    ]);
+    for splitters in rows.map(simd_hits) {
+        let split_beams = beams & splitters;
 
-        let o_beams = simd_shk::<_, 3>(split_beams);
-        for i in 0..3 {
-            // Add splits
-            splits += simd_hit(split_beams[i]);
-            // Update beams
-            beams[i] &= !split_beams[i];
-            beams[i] |= o_beams[i];
-        }
+        let o_beams = (split_beams << 1)
+            | (split_beams >> 1)
+            | (split_beams << 63).shift_elements_left::<1>(0)
+            | (split_beams >> 63).shift_elements_right::<1>(0);
+
+        splits += split_beams.count_ones().reduce_sum() as u32;
+        beams &= !split_beams;
+        beams |= o_beams;
     }
 
     splits as usize
