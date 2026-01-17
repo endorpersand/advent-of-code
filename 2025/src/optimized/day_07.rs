@@ -21,15 +21,6 @@ fn as_simd(s: &[u8]) -> [u8x64; 3] {
         u8x64::load_or_default(c)
     ]
 }
-#[inline]
-fn simd_hit<const N: usize>(s: Simd<u8, N>) -> u32
-    where LaneCount<N>: SupportedLaneCount
-{
-    (s & Simd::splat(0x40))
-        .simd_ne(Simd::splat(0))
-        .to_bitmask()
-        .count_ones()
-}
 fn simd_shk<const N: usize, const M: usize>(s: [Simd<u8, N>; M]) -> [Simd<u8, N>; M]
     where LaneCount<N>: SupportedLaneCount
 {
@@ -42,6 +33,15 @@ fn simd_shk<const N: usize, const M: usize>(s: [Simd<u8, N>; M]) -> [Simd<u8, N>
 }
 
 pub fn part1(input: &str) -> usize {
+    #[inline]
+    fn simd_hit<const N: usize>(s: Simd<u8, N>) -> u32
+        where LaneCount<N>: SupportedLaneCount
+    {
+        s.simd_eq(Simd::splat(b'^'))
+            .to_bitmask()
+            .count_ones()
+    }
+
     const LEN: usize = 142;
     const HALF: usize = LEN / 2 - 1;
     const OFFSET: usize = HALF - 32;
@@ -49,7 +49,7 @@ pub fn part1(input: &str) -> usize {
     let (grid, len) = parse(input);
     debug_assert_eq!(len, LEN);
     
-    let mut rows = grid.chunks(len).step_by(2);
+    let mut rows = grid.chunks(len).step_by(2).skip(1);
     let mut splits = 0;
 
     // Beam width <= 64
@@ -75,8 +75,7 @@ pub fn part1(input: &str) -> usize {
         beams.shift_elements_left::<{ 64 - OFFSET }>(0),
         u8x64::splat(0)
     ];
-    for l in rows {
-        let splitters = as_simd(l);
+    for splitters in rows.map(as_simd) {
         let split_beams = std::array::from_fn(|i| beams[i] & splitters[i]);
 
         let o_beams = simd_shk::<_, 3>(split_beams);
