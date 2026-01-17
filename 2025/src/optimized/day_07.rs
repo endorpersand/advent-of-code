@@ -92,18 +92,22 @@ pub fn part1(input: &str) -> usize {
     splits as usize
 }
 pub fn part2(input: &str) -> usize {
+    const LEN: usize = 142;
+    const HALF: usize = LEN / 2 - 1;
+
     let (grid, len) = parse(input);
-    let mut rows = grid.chunks(len)
-        .step_by(2);
-    let mut beams: Vec<_> = rows.next().unwrap().iter()
-        .map(|&b| is_hit(b))
-        .map(usize::from)
-        .collect();
+    debug_assert_eq!(len, LEN);
     
-    let half = len / 2 - 1;
+    let mut rows = grid.chunks(len).step_by(2);
+    let mut beams = [0; LEN];
+    let start = rows.next().unwrap().iter()
+        .position(|&b| is_hit(b))
+        .unwrap();
+    beams[start] = 1;
+    
     for (i, l) in rows.enumerate() {
-        let slice = unsafe { l.get_unchecked(half - i .. half + 1 + i) };
-        for (j, &b) in std::iter::zip(half - i.., slice) {
+        let slice = unsafe { l.get_unchecked(HALF - i .. HALF + 1 + i) };
+        for (j, &b) in std::iter::zip(HALF - i.., slice) {
             if is_hit(b) {
                 unsafe {
                     let replacement = [*beams.get_unchecked(j - 1) + *beams.get_unchecked(j), 0, *beams.get_unchecked(j + 1) + *beams.get_unchecked(j)];
@@ -117,7 +121,7 @@ pub fn part2(input: &str) -> usize {
         }
     }
 
-    beams.iter().sum::<usize>()
+    beams.into_iter().sum::<usize>()
 }
 
 
