@@ -19,7 +19,7 @@ fn exec(input: &[usize], iterations: usize) -> usize {
             match n {
                 0 => insert(&mut ctr, &[1], c),
                 n if n.ilog10() % 2 == 1 => {
-                    let e = (n.ilog10() + 1) / 2;
+                    let e = n.ilog10().div_ceil(2);
                     insert(&mut ctr, &[n / 10usize.pow(e), n % 10usize.pow(e)], c)
                 }
                 n => insert(&mut ctr, &[n * 2024], c)

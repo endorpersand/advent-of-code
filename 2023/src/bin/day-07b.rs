@@ -62,6 +62,7 @@ impl Ord for Card {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Hand([Card; 5]);
+#[expect(clippy::non_canonical_partial_ord_impl)]
 impl PartialOrd for Hand {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.0.cmp(&other.0))

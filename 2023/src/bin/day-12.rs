@@ -124,7 +124,7 @@ impl DamageBlock {
         let nz = block.iter().position(|&p| p != 0).unwrap_or(block.len());
         let nz_block = block.split_off(nz);
 
-        known_start ^= block.len() % 2 != 0;
+        known_start ^= !block.len().is_multiple_of(2);
         Self { known_start, block: nz_block }
     }
 

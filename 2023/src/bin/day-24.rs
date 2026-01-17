@@ -123,7 +123,7 @@ fn lcm(a: u128, b: u128) -> u128 {
 }
 
 impl Rational {
-    const ZERO: Self = Rational { sign: false, numer: 0, denom: unsafe { NonZeroU128::new_unchecked(1) }};
+    const ZERO: Self = Rational { sign: false, numer: 0, denom: NonZeroU128::new(1).unwrap()};
 
     fn new(n: i128, d: NonZeroI128) -> Self {
         let sign = n.is_negative() ^ d.is_negative();

@@ -129,7 +129,7 @@ impl CachedSteps {
         let rad = (n / size) - 1;
         let center = 1;
         
-        let center_is_odd = n % 2 != 0;
+        let center_is_odd = !n.is_multiple_of(2);
         let inner_rings = {
             let n_rings = rad >> 1;
             n_rings * (n_rings + 1)

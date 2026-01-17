@@ -52,7 +52,7 @@ fn soln(input: &str) {
 
     let p1: isize = data.iter()
         .filter_map(|m| m.solve())
-        .filter(|&(l, r)| (l <= 100 && r <= 100))
+        .filter(|&(l, r)| l <= 100 && r <= 100)
         .map(|(l, r)| l * 3 + r)
         .sum();
     println!("{p1}");

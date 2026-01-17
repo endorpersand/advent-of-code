@@ -76,7 +76,7 @@ struct State<'s> {
     rules: HashMap<&'s str, Rule<'s>>,
     values: Vec<InitValues>
 }
-fn parse(file: &str) -> State {
+fn parse(file: &str) -> State<'_> {
     let mut lines = file.lines();
 
     let rules = lines.by_ref()
