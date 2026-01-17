@@ -41,13 +41,14 @@ fn simd_shk(s: [u8x64; 3]) -> [u8x64; 3] {
 
 pub fn part1(input: &str) -> usize {
     let (grid, len) = parse(input);
-    let mut rows = grid.chunks(len).map(as_simd);
+    let mut rows = grid.chunks(len)
+        .step_by(2)
+        .map(as_simd);
 
     let mut beams = rows.next().unwrap();
     let mut splits = 0;
 
-    rows.next();
-    for splitters in rows.step_by(2) {
+    for splitters in rows {
         let split_beams = std::array::from_fn(|i| beams[i] & splitters[i]);
 
         let o_beams = simd_shk(split_beams);
@@ -64,15 +65,15 @@ pub fn part1(input: &str) -> usize {
 }
 pub fn part2(input: &str) -> usize {
     let (grid, len) = parse(input);
-    let mut rows = grid.chunks(len);
+    let mut rows = grid.chunks(len)
+        .step_by(2);
 
     let mut beams: Vec<_> = rows.next().unwrap().iter()
         .map(|&b| is_hit(b))
         .map(usize::from)
         .collect();
     
-    rows.next();
-    for l in rows.step_by(2) {
+    for l in rows {
         for (i, &b) in l.iter().enumerate() {
             if is_hit(b) {
                 unsafe {
@@ -87,7 +88,7 @@ pub fn part2(input: &str) -> usize {
         }
     }
 
-    beams.iter().sum()
+    beams.iter().sum::<usize>()
 }
 
 
